@@ -1,30 +1,10 @@
 import numpy as np
 
 def leapfrog(q: np.ndarray, p: np.ndarray, epsilon, grad_U):
-    """
-    Performs one leapfrog step in Hamiltonian dynamics simulation.
-    
-    Parameters:
-        q: array - position variable
-        p: array - momentum variable  
-        epsilon: float - step size
-        grad_U: callable - gradient of potential energy function
-    
-    Returns:
-        q: array - updated position
-        p: array - updated momentum
-    """
-    # Half step for momentum
-    p = p - 0.5 * epsilon * (grad_U(q)[1])
-    
-    # Full step for position
+    p = p - 0.5 * epsilon * grad_U(q)
     q = q + epsilon * p
-    
-    # Half step for momentum
-    p = p - 0.5 * epsilon * (grad_U(q)[1])
-    
+    p = p - 0.5 * epsilon * grad_U(q)
     return q, p
-
 
 def nuts_draw(U, grad_U, epsilon, current_q):
     """
@@ -81,7 +61,8 @@ def nuts_draw(U, grad_U, epsilon, current_q):
     
         # Acceptance criterion (Metropolis-Hastings)
     H_new = U(q_prime) + 0.5 * np.sum(p**2)
-    accept_prob = np.exp(H0 - H_new)
+    accept_prob = min(1.0, np.exp(H0 - H_new))
+    
     if np.random.rand() < accept_prob:
         return q_prime
     else:
@@ -148,92 +129,9 @@ def build_tree(q, p, v, j, epsilon, U, grad_U, H0):
         return q_new, p_new, q_minus, p_minus, q_propose, n_propose, s_propose
 
 def sample(U, grad_U, epsilon, current_q, n_samples):
-    """
-    Sample from the posterior distribution using NUTS.
-    """
-    samples = []
+
     samples = np.zeros((n_samples, len(current_q)))
+    
     for i in range(n_samples):
         samples[i] = nuts_draw(U, grad_U, epsilon, current_q)
     return samples
-
-def nutpie_update(draw_matrix, grad_matrix, gamma=1e-5, cutoff=0.01):
-    """
-    Perform low-rank mass matrix update using the Nutpie algorithm.
-    
-    Parameters:
-        draw_matrix: np.ndarray, shape (p, n)
-            Matrix of normalized draws in p-dimensional parameter space.
-        grad_matrix: np.ndarray, shape (p, n)
-            Matrix of normalized gradients in p-dimensional parameter space.
-        gamma: float, optional
-            Regularization parameter to add to the diagonal.
-        cutoff: float, optional
-            Eigenvalue cutoff for dimensionality reduction.
-    
-    Returns:
-        mass_matrix: np.ndarray, shape (p, k)
-            Low-rank approximation to the mass matrix, where k is determined by cutoff.
-    """
-
-    # Step 1: Derive orthonormal bases of draw and grad matrices using SVD
-    U_draw, _, _ = np.linalg.svd(draw_matrix, full_matrices=False)
-    U_grad, _, _ = np.linalg.svd(grad_matrix, full_matrices=False)
-    
-    # Combine orthonormal bases
-    S = np.hstack([U_draw, U_grad])  # Shape (p, 2n)
-
-    # Step 2: Perform thin QR decomposition
-    Q, _ = np.linalg.qr(S)  # Q is orthonormal, shape (p, p)
-
-    # Step 3: Project original draws and grads onto shared space
-    P_draw = Q.T @ draw_matrix  # Shape (p, n)
-    P_grad = Q.T @ grad_matrix  # Shape (p, n)
-
-    # Step 4: Compute regularized empirical covariance matrices
-    C_draw = P_draw @ P_draw.T + gamma * np.eye(Q.shape[1])  # Shape (p, p)
-    C_grad = P_grad @ P_grad.T + gamma * np.eye(Q.shape[1])  # Shape (p, p)
-
-    # Step 5: Compute symmetric positive definite mean (SPDM) of the two matrices
-    Sigma = spdm(C_draw, C_grad)  # Shape (p, p)
-
-    # Step 6: Eigendecompose the SPDM
-    eigvals, eigvecs = np.linalg.eigh(Sigma)  # Eigendecomposition of symmetric matrix
-
-    # Step 7: Select eigenvectors corresponding to eigenvalues above the cutoff
-    indices = np.where(eigvals >= cutoff)[0]
-    U_selected = eigvecs[:, indices]  # Shape (p, |I|)
-
-    # Step 8: Return the low-rank mass matrix
-    mass_matrix = Q @ U_selected  # Shape (p, |I|)
-    return mass_matrix
-
-
-def spdm(A, B):
-    """
-    Compute the symmetric positive definite mean (SPDM) of matrices A and B.
-    
-    Parameters:
-        A: np.ndarray, shape (p, p)
-        B: np.ndarray, shape (p, p)
-    
-    Returns:
-        spdm_matrix: np.ndarray, shape (p, p)
-            Symmetric positive definite mean of A and B.
-    """
-
-    # Compute matrix square root and inverse square root of A
-    eigvals_A, eigvecs_A = np.linalg.eigh(A)
-    A_sqrt = eigvecs_A @ np.diag(np.sqrt(eigvals_A)) @ eigvecs_A.T
-    A_inv_sqrt = eigvecs_A @ np.diag(1 / np.sqrt(eigvals_A)) @ eigvecs_A.T
-
-    # Compute intermediate matrix
-    M = A_sqrt @ B @ A_sqrt
-
-    # Compute square root of M
-    eigvals_M, eigvecs_M = np.linalg.eigh(M)
-    M_sqrt = eigvecs_M @ np.diag(np.sqrt(eigvals_M)) @ eigvecs_M.T
-
-    # Return symmetric positive definite mean
-    spdm_matrix = A_inv_sqrt @ M_sqrt @ A_inv_sqrt
-    return spdm_matrix
