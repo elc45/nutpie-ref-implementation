@@ -61,8 +61,10 @@ def nuts_draw(U, grad_U, epsilon, current_q):
     
         # Acceptance criterion (Metropolis-Hastings)
     H_new = U(q_prime) + 0.5 * np.sum(p**2)
-    accept_prob = min(1.0, np.exp(H0 - H_new))
-    
+
+    delta_H = H_new - H0
+    accept_prob = np.exp(delta_H)
+
     if np.random.rand() < accept_prob:
         return q_prime
     else:
@@ -97,8 +99,8 @@ def build_tree(q, p, v, j, epsilon, U, grad_U, H0):
         H_new = U(q_new) + 0.5 * np.sum(p_new**2)
         
         # Check validity of point (within delta_max of initial energy)
-        n_valid = int(np.log(np.exp(H0 - H_new)) > -1000)
-        s_valid = int(np.log(np.exp(H0 - H_new)) > -100)
+        n_valid = int((H_new - H0) > -1000)
+        s_valid = int((H_new - H0) > -100)
         
         return q_new, p_new, q_new, p_new, q_new, n_valid, s_valid
         
