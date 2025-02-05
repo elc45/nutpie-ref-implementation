@@ -1,0 +1,239 @@
+import numpy as np
+
+def leapfrog(q: np.ndarray, p: np.ndarray, epsilon, grad_U):
+    """
+    Performs one leapfrog step in Hamiltonian dynamics simulation.
+    
+    Parameters:
+        q: array - position variable
+        p: array - momentum variable  
+        epsilon: float - step size
+        grad_U: callable - gradient of potential energy function
+    
+    Returns:
+        q: array - updated position
+        p: array - updated momentum
+    """
+    # Half step for momentum
+    p = p - 0.5 * epsilon * (grad_U(q)[1])
+    
+    # Full step for position
+    q = q + epsilon * p
+    
+    # Half step for momentum
+    p = p - 0.5 * epsilon * (grad_U(q)[1])
+    
+    return q, p
+
+
+def nuts_draw(U, grad_U, epsilon, current_q):
+    """
+    No-U-Turn Sampler (NUTS) implementation
+    
+    Parameters:
+        U: callable - potential energy function (negative log probability)
+        grad_U: callable - gradient of potential energy function
+        epsilon: float - step size
+        current_q: array - current position
+    """
+    # Initialize momentum and position
+    q = current_q.copy()
+    p = np.random.randn(len(q))
+    
+    # Initial Hamiltonian
+    H0 = U(q) + 0.5 * np.sum(p**2)
+    
+    # Initialize trajectory tree
+    q_minus = q.copy()
+    q_plus = q.copy() 
+    p_minus = p.copy()
+    p_plus = p.copy()
+    j = 0
+    n = 1
+    s = 1
+    
+    # Build trajectory until U-turn or max depth
+    while s == 1:
+        # Choose direction
+        v = 2 * (np.random.rand() < 0.5) - 1
+        # Choose subtree to expand
+        if v == -1:
+            # Expand left subtree
+            q_minus, p_minus, _, _, q_prime, n_prime, s_prime = build_tree(
+                q_minus, p_minus, -1, j, epsilon, U, grad_U, H0)
+        else:
+            # Expand right subtree
+            q_plus, p_plus, _, _, q_prime, n_prime, s_prime = build_tree(
+                q_plus, p_plus, 1, j, epsilon, U, grad_U, H0)
+        
+        # Update number of valid points and stopping criterion
+        n += n_prime
+        s = s_prime * (np.dot(q_plus - q_minus, p_minus) >= 0) * \
+            (np.dot(q_plus - q_minus, p_plus) >= 0)
+        
+        # Increment depth
+        j += 1
+        
+        # Break if max depth exceeded
+        if j >= 10:
+            print("Max depth exceeded")
+            break
+    
+        # Acceptance criterion (Metropolis-Hastings)
+    H_new = U(q_prime) + 0.5 * np.sum(p**2)
+    accept_prob = np.exp(H0 - H_new)
+    if np.random.rand() < accept_prob:
+        return q_prime
+    else:
+        return current_q
+
+def build_tree(q, p, v, j, epsilon, U, grad_U, H0):
+    """
+    Build a binary tree of states by recursively doubling trajectory length.
+    
+    Parameters:
+        q: array - position
+        p: array - momentum 
+        v: int - direction (-1 or 1)
+        j: int - iteration/depth
+        epsilon: float - step size
+        U: callable - potential energy function
+        grad_U: callable - gradient of potential energy
+        H0: float - initial value of Hamiltonian
+        
+    Returns:
+        q: array - final position
+        p: array - final momentum
+        q_minus: array - leftmost position
+        p_minus: array - leftmost momentum
+        q_propose: array - proposed new position
+        n_propose: int - number of valid points in the subtree
+        s_propose: int - whether the subtree is valid (1) or not (0)
+    """
+    if j == 0:
+        # Single leapfrog step
+        p_new, q_new = leapfrog(q, p, epsilon, grad_U)
+        H_new = U(q_new) + 0.5 * np.sum(p_new**2)
+        
+        # Check validity of point (within delta_max of initial energy)
+        n_valid = int(np.log(np.exp(H0 - H_new)) > -1000)
+        s_valid = int(np.log(np.exp(H0 - H_new)) > -100)
+        
+        return q_new, p_new, q_new, p_new, q_new, n_valid, s_valid
+        
+    else:
+        # Recursively build left and right subtrees
+        q_new, p_new, q_minus, p_minus, q_propose, n_propose, s_propose = build_tree(
+            q, p, v, j-1, epsilon, U, grad_U, H0)
+            
+        if s_propose == 1:
+            if v == -1:
+                q_minus, p_minus, _, _, q_prime, n_prime, s_prime = build_tree(
+                    q_minus, p_minus, v, j-1, epsilon, U, grad_U, H0)
+            else:
+                q_new, p_new, _, _, q_prime, n_prime, s_prime = build_tree(
+                    q_new, p_new, v, j-1, epsilon, U, grad_U, H0)
+                    
+            # Update proposal with certain probability
+            if np.random.rand() < n_prime/(n_propose + n_prime):
+                q_propose = q_prime.copy()
+                
+            # Update stopping criterion
+            s_propose = s_prime * (np.dot(q_new - q_minus, p_minus) >= 0) * \
+                       (np.dot(q_new - q_minus, p_new) >= 0)
+            
+            # Update number of valid points
+            n_propose = n_propose + n_prime
+            
+        return q_new, p_new, q_minus, p_minus, q_propose, n_propose, s_propose
+
+def sample(U, grad_U, epsilon, current_q, n_samples):
+    """
+    Sample from the posterior distribution using NUTS.
+    """
+    samples = []
+    samples = np.zeros((n_samples, len(current_q)))
+    for i in range(n_samples):
+        samples[i] = nuts_draw(U, grad_U, epsilon, current_q)
+    return samples
+
+def nutpie_update(draw_matrix, grad_matrix, gamma=1e-5, cutoff=0.01):
+    """
+    Perform low-rank mass matrix update using the Nutpie algorithm.
+    
+    Parameters:
+        draw_matrix: np.ndarray, shape (p, n)
+            Matrix of normalized draws in p-dimensional parameter space.
+        grad_matrix: np.ndarray, shape (p, n)
+            Matrix of normalized gradients in p-dimensional parameter space.
+        gamma: float, optional
+            Regularization parameter to add to the diagonal.
+        cutoff: float, optional
+            Eigenvalue cutoff for dimensionality reduction.
+    
+    Returns:
+        mass_matrix: np.ndarray, shape (p, k)
+            Low-rank approximation to the mass matrix, where k is determined by cutoff.
+    """
+
+    # Step 1: Derive orthonormal bases of draw and grad matrices using SVD
+    U_draw, _, _ = np.linalg.svd(draw_matrix, full_matrices=False)
+    U_grad, _, _ = np.linalg.svd(grad_matrix, full_matrices=False)
+    
+    # Combine orthonormal bases
+    S = np.hstack([U_draw, U_grad])  # Shape (p, 2n)
+
+    # Step 2: Perform thin QR decomposition
+    Q, _ = np.linalg.qr(S)  # Q is orthonormal, shape (p, p)
+
+    # Step 3: Project original draws and grads onto shared space
+    P_draw = Q.T @ draw_matrix  # Shape (p, n)
+    P_grad = Q.T @ grad_matrix  # Shape (p, n)
+
+    # Step 4: Compute regularized empirical covariance matrices
+    C_draw = P_draw @ P_draw.T + gamma * np.eye(Q.shape[1])  # Shape (p, p)
+    C_grad = P_grad @ P_grad.T + gamma * np.eye(Q.shape[1])  # Shape (p, p)
+
+    # Step 5: Compute symmetric positive definite mean (SPDM) of the two matrices
+    Sigma = spdm(C_draw, C_grad)  # Shape (p, p)
+
+    # Step 6: Eigendecompose the SPDM
+    eigvals, eigvecs = np.linalg.eigh(Sigma)  # Eigendecomposition of symmetric matrix
+
+    # Step 7: Select eigenvectors corresponding to eigenvalues above the cutoff
+    indices = np.where(eigvals >= cutoff)[0]
+    U_selected = eigvecs[:, indices]  # Shape (p, |I|)
+
+    # Step 8: Return the low-rank mass matrix
+    mass_matrix = Q @ U_selected  # Shape (p, |I|)
+    return mass_matrix
+
+
+def spdm(A, B):
+    """
+    Compute the symmetric positive definite mean (SPDM) of matrices A and B.
+    
+    Parameters:
+        A: np.ndarray, shape (p, p)
+        B: np.ndarray, shape (p, p)
+    
+    Returns:
+        spdm_matrix: np.ndarray, shape (p, p)
+            Symmetric positive definite mean of A and B.
+    """
+
+    # Compute matrix square root and inverse square root of A
+    eigvals_A, eigvecs_A = np.linalg.eigh(A)
+    A_sqrt = eigvecs_A @ np.diag(np.sqrt(eigvals_A)) @ eigvecs_A.T
+    A_inv_sqrt = eigvecs_A @ np.diag(1 / np.sqrt(eigvals_A)) @ eigvecs_A.T
+
+    # Compute intermediate matrix
+    M = A_sqrt @ B @ A_sqrt
+
+    # Compute square root of M
+    eigvals_M, eigvecs_M = np.linalg.eigh(M)
+    M_sqrt = eigvecs_M @ np.diag(np.sqrt(eigvals_M)) @ eigvecs_M.T
+
+    # Return symmetric positive definite mean
+    spdm_matrix = A_inv_sqrt @ M_sqrt @ A_inv_sqrt
+    return spdm_matrix
