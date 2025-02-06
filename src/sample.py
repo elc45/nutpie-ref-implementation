@@ -1,4 +1,4 @@
-from ref_implementation import nuts_draw
+from nuts import nuts_draw
 from matrix_adaptation import nutpie_update
 import numpy as np
 from tqdm import tqdm

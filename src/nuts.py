@@ -15,6 +15,7 @@ def nuts_draw(U, grad_U, epsilon, current_q, mass_matrix: None):
         grad_U: callable - gradient of potential energy function
         epsilon: float - step size
         current_q: array - current position
+        mass_matrix: array - mass matrix
     """
 
     if mass_matrix is None:
@@ -22,7 +23,7 @@ def nuts_draw(U, grad_U, epsilon, current_q, mass_matrix: None):
 
     # Initialize momentum and position
     q = current_q.copy()
-    p = np.random.randn(len(q))
+    p = np.random.multivariate_normal(np.zeros_like(q), mass_matrix)
     
     # Initial Hamiltonian
     H0 = U(q) + 0.5 * np.sum(p**2)

@@ -24,7 +24,7 @@ def U(q):
 def grad_U(q):
     return model.log_density_gradient(q)[1]
 
-trace = sample(U, grad_U, epsilon=0.01, current_q=np.random.randn(n_params), n_samples=n_samples)
+trace, _ = sample(U, grad_U, epsilon=0.01, current_q=np.random.randn(n_params), n_samples=n_samples)
 
 # Save trace to file
 output_path = Path(__file__).parent.parent / 'tests' / 'trace.npy'
