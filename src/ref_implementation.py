@@ -56,9 +56,8 @@ def nuts_draw(U, grad_U, epsilon, current_q):
         
         # Break if max depth exceeded
         if j >= 10:
-            print("Max depth exceeded")
             break
-    
+
         # Acceptance criterion (Metropolis-Hastings)
     H_new = U(q_prime) + 0.5 * np.sum(p**2)
 
@@ -129,11 +128,3 @@ def build_tree(q, p, v, j, epsilon, U, grad_U, H0):
             n_propose = n_propose + n_prime
             
         return q_new, p_new, q_minus, p_minus, q_propose, n_propose, s_propose
-
-def sample(U, grad_U, epsilon, current_q, n_samples):
-
-    samples = np.zeros((n_samples, len(current_q)))
-    
-    for i in range(n_samples):
-        samples[i] = nuts_draw(U, grad_U, epsilon, current_q)
-    return samples

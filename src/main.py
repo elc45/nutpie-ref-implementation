@@ -1,6 +1,6 @@
-import bridgestan as bs
 import numpy as np
-from ref_implementation import sample
+import bridgestan as bs
+from sample import sample
 from pathlib import Path
 
 data = '{"D": 1}'
