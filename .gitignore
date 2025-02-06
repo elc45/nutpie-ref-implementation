@@ -1,4 +1,5 @@
 *.npy
 *.csv
 tests.ipynb
-src/__pycache__/ref_implementation.cpython-313.pyc
+src/__pycache__/
+__pycache__/

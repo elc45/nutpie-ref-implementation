@@ -1,1 +1,1 @@
-A reference implementation of `nuts-rs` in Python.
+Usage: `python main.py <model_name> <n_samples>`
