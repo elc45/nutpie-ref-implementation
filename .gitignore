@@ -1,5 +1,4 @@
 *.npy
 *.csv
 tests.ipynb
-src/__pycache__/
 **/__pycache__/

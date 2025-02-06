@@ -6,7 +6,7 @@ def leapfrog(q: np.ndarray, p: np.ndarray, epsilon, grad_U):
     p = p - 0.5 * epsilon * grad_U(q)
     return q, p
 
-def nuts_draw(U, grad_U, epsilon, current_q):
+def nuts_draw(U, grad_U, epsilon, current_q, mass_matrix: None):
     """
     No-U-Turn Sampler (NUTS) implementation
     
@@ -16,6 +16,10 @@ def nuts_draw(U, grad_U, epsilon, current_q):
         epsilon: float - step size
         current_q: array - current position
     """
+
+    if mass_matrix is None:
+        mass_matrix = np.eye(len(current_q))
+
     # Initialize momentum and position
     q = current_q.copy()
     p = np.random.randn(len(q))
@@ -64,10 +68,10 @@ def nuts_draw(U, grad_U, epsilon, current_q):
     delta_H = H_new - H0
     accept_prob = np.exp(delta_H)
 
-    if np.random.rand() < accept_prob:
-        return q_prime
-    else:
-        return current_q
+    # Compute gradient of final position
+    final_grad = grad_U(q_prime if np.random.rand() < accept_prob else current_q)
+    
+    return (q_prime if np.random.rand() < accept_prob else current_q), final_grad
 
 def build_tree(q, p, v, j, epsilon, U, grad_U, H0):
     """
