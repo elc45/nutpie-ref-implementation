@@ -4,7 +4,7 @@ import numpy as np
 from tqdm import tqdm
 import sys
 
-def sample(U, grad_U, epsilon, current_q, n_samples, adaptation_window=50):
+def sample(U, grad_U, epsilon, current_q, n_samples, warmup=1000, adaptation_window=50):
     dim = len(current_q)
     samples = np.zeros((n_samples, dim))
     mass_matrix = np.eye(dim)  # Start with identity matrix
@@ -14,8 +14,8 @@ def sample(U, grad_U, epsilon, current_q, n_samples, adaptation_window=50):
     grads_buffer = np.zeros((dim, adaptation_window))
     buffer_idx = 0
     
-    for i in tqdm(range(n_samples)):
-        # Get sample and its gradient in one call
+    # Warmup phase
+    for i in tqdm(range(warmup)):
         current_q, current_grad = nuts_draw(U, grad_U, epsilon, current_q, mass_matrix)
         
         # Store for adaptation
@@ -34,7 +34,10 @@ def sample(U, grad_U, epsilon, current_q, n_samples, adaptation_window=50):
             
             # Update mass matrix
             mass_matrix = nutpie_update(draws_normalized, grads_normalized)
-        
+    
+    # Sampling phase with fixed mass matrix
+    for i in tqdm(range(n_samples)):
+        current_q, current_grad = nuts_draw(U, grad_U, epsilon, current_q, mass_matrix)
         samples[i] = current_q
         
     return samples, mass_matrix
