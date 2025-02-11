@@ -2,3 +2,4 @@
 *.csv
 tests.ipynb
 **/__pycache__/
+.vscode/launch.json

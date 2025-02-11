@@ -3,16 +3,32 @@ import bridgestan as bs
 from sample import sample
 from pathlib import Path
 import sys
+import argparse
 
-if len(sys.argv) != 4:
-    print("Usage: python main.py <model_name> <n_samples> <warmup_iters>")
-    sys.exit(1)
+# Convert RuntimeWarnings to Exceptions for debugging
+import warnings
+warnings.filterwarnings('error', category=RuntimeWarning)
 
-model_name = sys.argv[1]
-n_samples = int(sys.argv[2])
-warmup_iters = int(sys.argv[3])
+parser = argparse.ArgumentParser(description='Run MCMC sampling')
 
-data = '{"D": 1}'
+parser.add_argument('--model', type=str, required=True,
+                   help='Name of the Stan model file (without .stan extension)')
+parser.add_argument('--samples', type=int, required=True,
+                   help='Number of MCMC samples to generate')
+parser.add_argument('--warmup', type=int, required=True,
+                   help='Number of warmup iterations')
+parser.add_argument('--adapt_mass_matrix', type=lambda x: x.lower() in ['true', '1', 'yes', 't'], 
+                   required=False, default=True,
+                   help='Whether to adapt the mass matrix')
+
+args = parser.parse_args()
+
+model_name = args.model
+n_samples = args.samples
+warmup_iters = args.warmup
+adapt_mass_matrix = args.adapt_mass_matrix
+
+data = '{"D": 2}'
 
 # Get path to model file relative to this script
 model_path = Path(__file__).parent.parent / 'models' / f'{model_name}.stan'
@@ -25,7 +41,7 @@ def U(q):
 def grad_U(q):
     return model.log_density_gradient(q)[1]
 
-trace, mass_matrix = sample(U, grad_U, epsilon=0.01, current_q=np.random.randn(n_params), n_samples=n_samples, warmup=warmup_iters)
+trace, mass_matrix = sample(U, grad_U, epsilon=0.01, current_q=np.random.randn(n_params), n_samples=n_samples, warmup=warmup_iters, adapt_mass_matrix=adapt_mass_matrix)
 
 # Save trace to file
 output_path = Path(__file__).parent.parent / 'tests' / 'trace.npy'
