@@ -49,7 +49,7 @@ def nutpie_update(draw_matrix, grad_matrix, gamma=1e-5, cutoff=0.01):
 
     # Step 8: Return the low-rank mass matrix
     mass_matrix = Q @ U_selected  # Shape (p, |I|)
-    return Sigma
+    return mass_matrix
 
 def spdm(A, B):
     """
