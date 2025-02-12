@@ -1,4 +1,4 @@
-from src.ref_implementation import *
+from src.nuts import *
 from src.matrix_adaptation import *
 import numpy as np
 

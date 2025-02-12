@@ -1,5 +1,6 @@
 *.npy
 *.csv
 tests.ipynb
-src/__pycache__/
 **/__pycache__/
+.vscode/launch.json
+tests/az_trace.nc
