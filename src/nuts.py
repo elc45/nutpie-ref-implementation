@@ -6,7 +6,7 @@ def leapfrog(q: np.ndarray, p: np.ndarray, epsilon, grad_U):
     p = p - 0.5 * epsilon * grad_U(q)
     return q, p
 
-def nuts_draw(U, grad_U, epsilon, current_q, mass_matrix: None):
+def nuts_draw(U, grad_U, epsilon, current_q, mass_matrix: None, max_depth: int = 10):
     """
     No-U-Turn Sampler (NUTS) implementation
     
@@ -21,14 +21,11 @@ def nuts_draw(U, grad_U, epsilon, current_q, mass_matrix: None):
     if mass_matrix is None:
         mass_matrix = np.eye(len(current_q))
 
-    # Initialize momentum and position
     q = current_q.copy()
     p = np.random.multivariate_normal(np.zeros_like(q), mass_matrix)
     
-    # Initial Hamiltonian
     H0 = U(q) + 0.5 * np.sum(p**2)
     
-    # Initialize trajectory tree
     q_minus = q.copy()
     q_plus = q.copy() 
     p_minus = p.copy()
@@ -36,43 +33,36 @@ def nuts_draw(U, grad_U, epsilon, current_q, mass_matrix: None):
     j = 0
     n = 1
     s = 1
-    
-    # Build trajectory until U-turn or max depth
+    FORWARD = 1
+    BACKWARD = -1
+
     while s == 1:
-        # Choose direction
-        v = 2 * (np.random.rand() < 0.5) - 1
-        # Choose subtree to expand
-        if v == -1:
-            # Expand left subtree
+        v = np.random.choice([FORWARD, BACKWARD])
+        if v == BACKWARD:
             q_minus, p_minus, _, _, q_prime, n_prime, s_prime = build_tree(
-                q_minus, p_minus, -1, j, epsilon, U, grad_U, H0)
+                q_minus, p_minus, BACKWARD, j, epsilon, U, grad_U, H0)
         else:
-            # Expand right subtree
             q_plus, p_plus, _, _, q_prime, n_prime, s_prime = build_tree(
-                q_plus, p_plus, 1, j, epsilon, U, grad_U, H0)
+                q_plus, p_plus, FORWARD, j, epsilon, U, grad_U, H0)
         
-        # Update number of valid points and stopping criterion
         n += n_prime
         s = s_prime * (np.dot(q_plus - q_minus, p_minus) >= 0) * \
             (np.dot(q_plus - q_minus, p_plus) >= 0)
         
-        # Increment depth
         j += 1
         
-        # Break if max depth exceeded
-        if j >= 10:
+        if j > max_depth:
             break
 
-        # Acceptance criterion (Metropolis-Hastings)
     H_new = U(q_prime) + 0.5 * np.sum(p**2)
 
     delta_H = H_new - H0
     accept_prob = np.exp(delta_H)
 
-    # Compute gradient of final position
-    final_grad = grad_U(q_prime if np.random.rand() < accept_prob else current_q)
+    current_q = q_prime if np.random.rand() < accept_prob else current_q
+    final_grad = grad_U(current_q)
     
-    return (q_prime if np.random.rand() < accept_prob else current_q), final_grad
+    return current_q, final_grad
 
 def build_tree(q, p, v, j, epsilon, U, grad_U, H0):
     """
@@ -98,18 +88,15 @@ def build_tree(q, p, v, j, epsilon, U, grad_U, H0):
         s_propose: int - whether the subtree is valid (1) or not (0)
     """
     if j == 0:
-        # Single leapfrog step
         p_new, q_new = leapfrog(q, p, epsilon, grad_U)
         H_new = U(q_new) + 0.5 * np.sum(p_new**2)
         
-        # Check validity of point (within delta_max of initial energy)
         n_valid = int((H_new - H0) > -1000)
         s_valid = int((H_new - H0) > -100)
         
         return q_new, p_new, q_new, p_new, q_new, n_valid, s_valid
         
     else:
-        # Recursively build left and right subtrees
         q_new, p_new, q_minus, p_minus, q_propose, n_propose, s_propose = build_tree(
             q, p, v, j-1, epsilon, U, grad_U, H0)
             
@@ -121,15 +108,12 @@ def build_tree(q, p, v, j, epsilon, U, grad_U, H0):
                 q_new, p_new, _, _, q_prime, n_prime, s_prime = build_tree(
                     q_new, p_new, v, j-1, epsilon, U, grad_U, H0)
                     
-            # Update proposal with certain probability
             if np.random.rand() < n_prime/(n_propose + n_prime):
                 q_propose = q_prime.copy()
                 
-            # Update stopping criterion
             s_propose = s_prime * (np.dot(q_new - q_minus, p_minus) >= 0) * \
                        (np.dot(q_new - q_minus, p_new) >= 0)
             
-            # Update number of valid points
             n_propose = n_propose + n_prime
             
         return q_new, p_new, q_minus, p_minus, q_propose, n_propose, s_propose
