@@ -1,9 +1,9 @@
 from nuts import nuts_draw
-from matrix_adaptation import full_matrix_adapt
+from matrix_adaptation import full_matrix_adapt, diag_matrix_adapt, low_rank_matrix_adapt
 import numpy as np
 from tqdm import tqdm
 
-def sample(U, grad_U, epsilon, current_q, n_samples, warmup=1000, adaptation_window=50, adapt_mass_matrix=True):
+def sample(U, grad_U, epsilon, current_q, n_samples, warmup=1000, adaptation_window=50, adapt_mass_matrix=True, matrix_adapt_type=None):
     dim = len(current_q)
     samples = np.zeros((n_samples, dim))
     mass_matrix = np.eye(dim)
@@ -22,7 +22,12 @@ def sample(U, grad_U, epsilon, current_q, n_samples, warmup=1000, adaptation_win
             buffer_idx = (buffer_idx + 1) % adaptation_window
         
             if (i + 1) % adaptation_window == 0 and i > 0:
-                mass_matrix = full_matrix_adapt(draws_buffer, grads_buffer)
+                if matrix_adapt_type == 'full':
+                    mass_matrix = full_matrix_adapt(draws_buffer, grads_buffer)
+                elif matrix_adapt_type == 'diag':
+                    mass_matrix = diag_matrix_adapt(draws_buffer, grads_buffer)
+                elif matrix_adapt_type == 'low_rank':
+                    mass_matrix = low_rank_matrix_adapt(draws_buffer, grads_buffer)
     
     for i in tqdm(range(n_samples)):
         current_q, current_grad = nuts_draw(U, grad_U, epsilon, current_q, mass_matrix)

@@ -14,6 +14,17 @@ def full_matrix_adapt(draw_matrix, grad_matrix):
 
     return Sigma
 
+def low_rank_matrix_adapt(draw_matrix, grad_matrix):
+    pass
+
+def diag_matrix_adapt(draw_matrix, grad_matrix):
+    draw_variance = np.var(draw_matrix, axis=1)
+    grad_variance = np.var(grad_matrix, axis=1)
+
+    scaling_factors = np.sqrt(draw_variance / grad_variance)
+
+    return np.diag(scaling_factors)
+
 def spdm(A, B):
     """
     Compute the symmetric positive definite mean (SPDM) of matrices A and B.

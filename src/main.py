@@ -22,6 +22,9 @@ parser.add_argument('--adapt_mass_matrix', type=lambda x: x.lower() in ['true', 
                    help='Whether to adapt the mass matrix')
 parser.add_argument('--output_path', type=str, required=False, default='trace.npy',
                    help='Path to save the trace')
+parser.add_argument('--matrix_adapt_type', type=str, required=False, default='diag',
+                   choices=['diag', 'low_rank', 'full'],
+                   help='Type of mass matrix adaptation to use (only used if adapt_mass_matrix is True)')
 
 args = parser.parse_args()
 
@@ -29,6 +32,7 @@ model_name = args.model
 n_samples = args.samples
 warmup_iters = args.warmup
 adapt_mass_matrix = args.adapt_mass_matrix
+matrix_adapt_type = args.matrix_adapt_type
 
 data = '{"D": 2}'
 
@@ -42,9 +46,15 @@ def U(q):
 def grad_U(q):
     return model.log_density_gradient(q)[1]
 
-trace, mass_matrix = sample(U, grad_U, epsilon=0.01, current_q=np.random.randn(n_params), n_samples=n_samples, warmup=warmup_iters, adapt_mass_matrix=adapt_mass_matrix)
+init_point = np.random.randn(n_params)
+trace, mass_matrix = sample(U, grad_U, epsilon=0.01, 
+                            current_q=init_point, 
+                            n_samples=n_samples, 
+                            warmup=warmup_iters, 
+                            adapt_mass_matrix=adapt_mass_matrix, 
+                            matrix_adapt_type=matrix_adapt_type)
 
-n_samples, n_params = trace.shape
+n_samples =trace.shape[0]
 
 draws_dict = {}
 draws_dict['x'] = trace.reshape((1, n_samples, n_params))
