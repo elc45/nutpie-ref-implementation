@@ -1,46 +1,18 @@
 import numpy as np
 
-def nutpie_update(draw_matrix, grad_matrix, gamma=1e-5, cutoff=0.01):
-    """
-    Perform low-rank mass matrix update using the Nutpie algorithm.
-    
-    Parameters:
-        draw_matrix: np.ndarray, shape (p, n)
-            Matrix of normalized draws in p-dimensional parameter space.
-        grad_matrix: np.ndarray, shape (p, n)
-            Matrix of normalized gradients in p-dimensional parameter space.
-        gamma: float, optional
-            Regularization parameter to add to the diagonal.
-        cutoff: float, optional
-            Eigenvalue cutoff for dimensionality reduction.
-    
-    Returns:
-        mass_matrix: np.ndarray, shape (p, k)
-            Low-rank approximation to the mass matrix, where k is determined by cutoff.
-    """
+def full_matrix_adapt(draw_matrix, grad_matrix):
 
-    U_draw, _, _ = np.linalg.svd(draw_matrix, full_matrices=False)
-    U_grad, _, _ = np.linalg.svd(grad_matrix, full_matrices=False)
+    cov = draw_matrix @ draw_matrix.T
+    diag = np.sqrt(np.diag(cov))
+    draw_cov = cov / np.outer(diag, diag)
 
-    S = np.hstack([U_draw, U_grad])
+    cov = grad_matrix @ grad_matrix.T
+    diag = np.sqrt(np.diag(cov))
+    grad_cov = cov / np.outer(diag, diag)
+    inv_grad_cov = np.linalg.inv(grad_cov)
+    Sigma = spdm(draw_cov, inv_grad_cov)
 
-    Q, _ = np.linalg.qr(S)
-
-    P_draw = Q.T @ draw_matrix
-    P_grad = Q.T @ grad_matrix
-
-    C_draw = P_draw @ P_draw.T + gamma * np.eye(Q.shape[1])
-    C_grad = P_grad @ P_grad.T + gamma * np.eye(Q.shape[1])
-
-    Sigma = spdm(C_draw, C_grad)
-
-    eigvals, eigvecs = np.linalg.eigh(Sigma)
-
-    indices = np.where(eigvals >= cutoff)[0]
-    U_selected = eigvecs[:, indices]
-
-    mass_matrix = Q @ U_selected
-    return mass_matrix
+    return Sigma
 
 def spdm(A, B):
     """

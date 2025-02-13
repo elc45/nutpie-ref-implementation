@@ -1,8 +1,7 @@
 from nuts import nuts_draw
-from matrix_adaptation import nutpie_update
+from matrix_adaptation import full_matrix_adapt
 import numpy as np
 from tqdm import tqdm
-import sys
 
 def sample(U, grad_U, epsilon, current_q, n_samples, warmup=1000, adaptation_window=50, adapt_mass_matrix=True):
     dim = len(current_q)
@@ -23,13 +22,7 @@ def sample(U, grad_U, epsilon, current_q, n_samples, warmup=1000, adaptation_win
             buffer_idx = (buffer_idx + 1) % adaptation_window
         
             if (i + 1) % adaptation_window == 0 and i > 0:
-                draws_centered = draws_buffer - draws_buffer.mean(axis=1, keepdims=True)
-                draws_normalized = draws_centered / draws_centered.std(axis=1, keepdims=True)
-                
-                grads_centered = grads_buffer - grads_buffer.mean(axis=1, keepdims=True)
-                grads_normalized = grads_centered / grads_centered.std(axis=1, keepdims=True)
-
-                mass_matrix = nutpie_update(draws_normalized, grads_normalized)
+                mass_matrix = full_matrix_adapt(draws_buffer, grads_buffer)
     
     for i in tqdm(range(n_samples)):
         current_q, current_grad = nuts_draw(U, grad_U, epsilon, current_q, mass_matrix)

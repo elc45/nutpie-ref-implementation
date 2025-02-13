@@ -1,8 +1,8 @@
 import numpy as np
 
-def leapfrog(q: np.ndarray, p: np.ndarray, epsilon, grad_U):
+def leapfrog(q: np.ndarray, p: np.ndarray, epsilon, grad_U, inv_mass_matrix):
     p = p - 0.5 * epsilon * grad_U(q)
-    q = q + epsilon * p
+    q = q + epsilon * inv_mass_matrix @ p
     p = p - 0.5 * epsilon * grad_U(q)
     return q, p
 
@@ -20,6 +20,8 @@ def nuts_draw(U, grad_U, epsilon, current_q, mass_matrix: None, max_depth: int =
 
     if mass_matrix is None:
         mass_matrix = np.eye(len(current_q))
+
+    inv_mass_matrix = np.linalg.inv(mass_matrix)
 
     q = current_q.copy()
     p = np.random.multivariate_normal(np.zeros_like(q), mass_matrix)
@@ -40,10 +42,10 @@ def nuts_draw(U, grad_U, epsilon, current_q, mass_matrix: None, max_depth: int =
         v = np.random.choice([FORWARD, BACKWARD])
         if v == BACKWARD:
             q_minus, p_minus, _, _, q_prime, n_prime, s_prime = build_tree(
-                q_minus, p_minus, BACKWARD, j, epsilon, U, grad_U, H0)
+                q_minus, p_minus, BACKWARD, j, epsilon, U, grad_U, H0, inv_mass_matrix)
         else:
             q_plus, p_plus, _, _, q_prime, n_prime, s_prime = build_tree(
-                q_plus, p_plus, FORWARD, j, epsilon, U, grad_U, H0)
+                q_plus, p_plus, FORWARD, j, epsilon, U, grad_U, H0, inv_mass_matrix)
         
         n += n_prime
         s = s_prime * (np.dot(q_plus - q_minus, p_minus) >= 0) * \
@@ -64,7 +66,7 @@ def nuts_draw(U, grad_U, epsilon, current_q, mass_matrix: None, max_depth: int =
     
     return current_q, final_grad
 
-def build_tree(q, p, v, j, epsilon, U, grad_U, H0):
+def build_tree(q, p, v, j, epsilon, U, grad_U, H0, inv_mass_matrix):
     """
     Build a binary tree of states by recursively doubling trajectory length.
     
@@ -88,7 +90,7 @@ def build_tree(q, p, v, j, epsilon, U, grad_U, H0):
         s_propose: int - whether the subtree is valid (1) or not (0)
     """
     if j == 0:
-        p_new, q_new = leapfrog(q, p, epsilon, grad_U)
+        p_new, q_new = leapfrog(q, p, epsilon, grad_U, inv_mass_matrix)
         H_new = U(q_new) + 0.5 * np.sum(p_new**2)
         
         n_valid = int((H_new - H0) > -1000)
@@ -98,15 +100,15 @@ def build_tree(q, p, v, j, epsilon, U, grad_U, H0):
         
     else:
         q_new, p_new, q_minus, p_minus, q_propose, n_propose, s_propose = build_tree(
-            q, p, v, j-1, epsilon, U, grad_U, H0)
+            q, p, v, j-1, epsilon, U, grad_U, H0, inv_mass_matrix)
             
         if s_propose == 1:
             if v == -1:
                 q_minus, p_minus, _, _, q_prime, n_prime, s_prime = build_tree(
-                    q_minus, p_minus, v, j-1, epsilon, U, grad_U, H0)
+                    q_minus, p_minus, v, j-1, epsilon, U, grad_U, H0, inv_mass_matrix)
             else:
                 q_new, p_new, _, _, q_prime, n_prime, s_prime = build_tree(
-                    q_new, p_new, v, j-1, epsilon, U, grad_U, H0)
+                    q_new, p_new, v, j-1, epsilon, U, grad_U, H0, inv_mass_matrix)
                     
             if np.random.rand() < n_prime/(n_propose + n_prime):
                 q_propose = q_prime.copy()
