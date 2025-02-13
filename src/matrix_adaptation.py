@@ -14,8 +14,33 @@ def full_matrix_adapt(draw_matrix, grad_matrix):
 
     return Sigma
 
-def low_rank_matrix_adapt(draw_matrix, grad_matrix):
-    pass
+def low_rank_matrix_adapt(draw_matrix, grad_matrix, gamma=1e-5, cutoff=0.01):
+
+    draws_normalized = (draw_matrix - draw_matrix.mean(axis=0)[:, np.newaxis]) / draw_matrix.std(axis=0)[:, np.newaxis]
+    grads_normalized = (grad_matrix - grad_matrix.mean(axis=0)[:, np.newaxis]) / grad_matrix.std(axis=0)[:, np.newaxis]
+    U_draw, _, _ = np.linalg.svd(draws_normalized, full_matrices=False)
+    U_grad, _, _ = np.linalg.svd(grads_normalized, full_matrices=False)
+
+    S = np.hstack([U_draw, U_grad])
+
+    Q, _ = np.linalg.qr(S)
+
+    P_draw = Q.T @ draw_matrix
+    P_grad = Q.T @ grad_matrix
+
+    C_draw = P_draw @ P_draw.T + gamma * np.eye(Q.shape[1])
+    C_grad = P_grad @ P_grad.T + gamma * np.eye(Q.shape[1])
+
+    Sigma = spdm(C_draw, C_grad)
+
+    eigvals, eigvecs = np.linalg.eigh(Sigma)
+
+    indices = np.where(eigvals >= cutoff)[0]
+    U_selected = eigvecs[:, indices]
+
+    mass_matrix = Q @ U_selected
+
+    return mass_matrix
 
 def diag_matrix_adapt(draw_matrix, grad_matrix):
     draw_variance = np.var(draw_matrix, axis=1)
@@ -23,7 +48,8 @@ def diag_matrix_adapt(draw_matrix, grad_matrix):
 
     scaling_factors = np.sqrt(draw_variance / grad_variance)
 
-    return np.diag(scaling_factors)
+    mass_matrix = np.diag(scaling_factors)
+    return mass_matrix
 
 def spdm(A, B):
     """
