@@ -3,4 +3,6 @@
 tests.ipynb
 **/__pycache__/
 .vscode/launch.json
-tests/az_trace.nc
+tests/outputs/
+models/eight.stan
+tests/test_data.json

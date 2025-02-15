@@ -74,4 +74,5 @@ def spdm(A, B):
     M_sqrt = eigvecs_M @ np.diag(np.sqrt(eigvals_M)) @ eigvecs_M.T
 
     spdm_matrix = A_inv_sqrt @ M_sqrt @ A_inv_sqrt
+    
     return spdm_matrix
