@@ -1,8 +1,11 @@
 *.npy
 *.csv
+*.nc
+*.so
 tests.ipynb
 **/__pycache__/
 .vscode/launch.json
 tests/outputs/
 models/eight.stan
 tests/test_data.json
+.DS_Store

@@ -65,6 +65,10 @@ def spdm(A, B):
     """
 
     eigvals_A, eigvecs_A = np.linalg.eigh(A)
+
+    # Clip eigenvalues to ensure they're positive
+    eigvals_A = np.maximum(eigvals_A, 1e-10)
+
     A_sqrt = eigvecs_A @ np.diag(np.sqrt(eigvals_A)) @ eigvecs_A.T
     A_inv_sqrt = eigvecs_A @ np.diag(1 / np.sqrt(eigvals_A)) @ eigvecs_A.T
 

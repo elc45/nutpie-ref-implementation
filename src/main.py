@@ -39,6 +39,7 @@ matrix_adapt_type = args.matrix_adapt_type
 data_path = args.data
 
 model_path = Path(__file__).parent.parent / 'models' / f'{model_name}.stan'
+print("Compiling model...")
 model = bs.StanModel(str(model_path), data=data_path)
 n_params = model.param_num()
 param_names = model.param_names()
@@ -49,13 +50,15 @@ def U(q):
 def grad_U(q):
     return model.log_density_gradient(q)[1]
 
+constrainer = model.param_constrain
 init_point = np.random.randn(n_params)
 warmup_samples, trace, mass_matrices = sample(U, grad_U, epsilon=0.01, 
                             current_q=init_point, 
                             n_samples=n_samples, 
                             n_warmup=warmup_iters, 
                             adapt_mass_matrix=adapt_mass_matrix, 
-                            matrix_adapt_type=matrix_adapt_type)
+                            matrix_adapt_type=matrix_adapt_type,
+                            constrainer=constrainer)
 
 n_matrices = mass_matrices.shape[0]
 mass_matrices = mass_matrices.reshape((1, n_matrices, n_params, n_params))

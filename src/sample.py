@@ -3,7 +3,7 @@ from matrix_adaptation import full_matrix_adapt, diag_matrix_adapt, low_rank_mat
 import numpy as np
 from tqdm import tqdm
 
-def sample(U, grad_U, epsilon, current_q, n_samples, n_warmup=1000, adaptation_window=50, adapt_mass_matrix=True, matrix_adapt_type=None):
+def sample(U, grad_U, epsilon, current_q, n_samples, constrainer, n_warmup=1000, adaptation_window=50, adapt_mass_matrix=True, matrix_adapt_type=None):
     dim = len(current_q)
     samples = np.zeros((n_samples, dim))
     warmup_samples = np.zeros((dim, n_warmup))
@@ -36,7 +36,7 @@ def sample(U, grad_U, epsilon, current_q, n_samples, n_warmup=1000, adaptation_w
 
     for i in tqdm(range(n_samples), desc="Sampling"):
         current_q, current_grad = nuts_draw(U, grad_U, epsilon, current_q, mass_matrix)
-        samples[i] = current_q
+        samples[i] = constrainer(current_q)
     
     metrics = np.array(metrics)
     return warmup_samples, samples, metrics

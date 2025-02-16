@@ -1,6 +1,6 @@
 import numpy as np
 
-def leapfrog(q: np.ndarray, p: np.ndarray, epsilon, grad_U, inv_mass_matrix):
+def leapfrog(q: np.ndarray, p: np.ndarray, epsilon: float, grad_U, inv_mass_matrix: np.ndarray):
     p = p - 0.5 * epsilon * grad_U(q)
     q = q + epsilon * inv_mass_matrix @ p
     p = p - 0.5 * epsilon * grad_U(q)
@@ -91,6 +91,7 @@ def build_tree(q, p, v, j, epsilon, U, grad_U, H0, inv_mass_matrix):
     """
     if j == 0:
         p_new, q_new = leapfrog(q, p, epsilon, grad_U, inv_mass_matrix)
+
         H_new = U(q_new) + 0.5 * np.sum(p_new**2)
         
         n_valid = int((H_new - H0) > -1000)
