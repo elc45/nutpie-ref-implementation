@@ -1,12 +1,13 @@
 import numpy as np
+import mypy
 
-def leapfrog(q: np.ndarray, p: np.ndarray, epsilon: float, grad_U, inv_mass_matrix: np.ndarray):
+def leapfrog(q: np.ndarray, p: np.ndarray, epsilon: np.float64, grad_U, inv_mass_matrix: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
     p = p - 0.5 * epsilon * grad_U(q)
     q = q + epsilon * inv_mass_matrix @ p
     p = p - 0.5 * epsilon * grad_U(q)
     return q, p
 
-def nuts_draw(U, grad_U, epsilon, current_q, mass_matrix: None, max_depth: int = 10):
+def nuts_draw(U, grad_U, epsilon: np.float64, current_q: np.ndarray, mass_matrix: np.ndarray | None = None, max_depth: int = 10) -> tuple[np.ndarray, np.ndarray]:
     """
     No-U-Turn Sampler (NUTS) implementation
     
@@ -95,6 +96,8 @@ def build_tree(q, p, v, j, epsilon, U, grad_U, H0, inv_mass_matrix):
         H_new = U(q_new) + 0.5 * np.sum(p_new**2)
         
         n_valid = int((H_new - H0) > -1000)
+        if not n_valid:
+            print("divergence")
         s_valid = int((H_new - H0) > -100)
         
         return q_new, p_new, q_new, p_new, q_new, n_valid, s_valid

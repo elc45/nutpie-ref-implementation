@@ -36,7 +36,8 @@ def sample(U, grad_U, epsilon, current_q, n_samples, constrainer, n_warmup=1000,
 
     for i in tqdm(range(n_samples), desc="Sampling"):
         current_q, current_grad = nuts_draw(U, grad_U, epsilon, current_q, mass_matrix)
-        samples[i] = constrainer(current_q)
+        samples[i] = current_q
     
     metrics = np.array(metrics)
+    print(np.mean(samples, axis=0))
     return warmup_samples, samples, metrics

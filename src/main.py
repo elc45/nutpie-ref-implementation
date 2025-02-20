@@ -21,7 +21,7 @@ parser.add_argument('--n_samples', type=int, required=True,
 parser.add_argument('--n_warmup', type=int, required=False,default=200,
                    help='Number of warmup iterations')
 parser.add_argument('--adapt_mass_matrix', type=lambda x: x.lower() in ['true', '1', 'yes', 't'], 
-                   required=False, default=True,
+                   required=False, default=False,
                    help='Whether to adapt the mass matrix')
 parser.add_argument('--output_path', type=str, required=False, default='trace.npy',
                    help='Output path for the trace')
@@ -52,6 +52,7 @@ def grad_U(q):
 
 constrainer = model.param_constrain
 init_point = np.random.randn(n_params)
+
 warmup_samples, trace, mass_matrices = sample(U, grad_U, epsilon=0.01, 
                             current_q=init_point, 
                             n_samples=n_samples, 
@@ -62,9 +63,27 @@ warmup_samples, trace, mass_matrices = sample(U, grad_U, epsilon=0.01,
 
 n_matrices = mass_matrices.shape[0]
 mass_matrices = mass_matrices.reshape((1, n_matrices, n_params, n_params))
-
 warmup_samples = warmup_samples.reshape((1, warmup_iters, n_params))
 trace = trace.reshape((1, n_samples, n_params))
+
+import matplotlib.pyplot as plt
+
+# Create a figure with subplots for each parameter
+n_params = len(param_names)
+fig, axes = plt.subplots(n_params, 1, figsize=(10, 3*n_params))
+if n_params == 1:
+    axes = [axes]
+
+# Plot histogram for each parameter
+for i, (param, ax) in enumerate(zip(param_names, axes)):
+    param_samples = trace[0, :, i]
+    ax.hist(param_samples, bins=50, density=True)
+    ax.set_title(f'Histogram of {param}')
+    ax.set_xlabel('Value')
+    ax.set_ylabel('Density')
+
+plt.tight_layout()
+plt.show()
 
 draws_dict = {}
 for param in param_names:
