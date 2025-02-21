@@ -121,25 +121,27 @@ def test_leapfrog():
     # Initial conditions
     q0 = -3.57286962
     p0 = 0.78
-    epsilon = 0.0001  # This is good, small enough for accuracy
-    n_steps = 100
+    epsilon = 0.01
+    n_steps = 10
     
-    # Analytical solution at t=n_steps*epsilon:
     t = n_steps * epsilon
-    q_true = q0 * np.cos(t)  # Modified: needs to include initial amplitude q0
-    p_true = -q0 * np.sin(t)
+    q_true = q0 * np.cos(t) + p0 * np.sin(t)
+    p_true = p0 * np.cos(t) - q0 * np.sin(t)
     
     # Use the leapfrog function instead of manual implementation
     q = np.array([q0])
     p = np.array([p0])
+    
     mass_matrix = np.array([1.0])  # For 1D case
     
-    for _ in range(n_steps):
+    for i in range(n_steps):
         q, p = leapfrog(q, p, epsilon, grad_U, mass_matrix)
+        print("p:", p)
+        print("p_true:", p0 * np.cos(t) - q0 * np.sin(i * epsilon))
     
-    print(f"Numerical solution: q={q}, p={p}")
-    print(f"Analytical solution: q={q_true}, p={p_true}")
-    print(f"Relative error: q={abs((q-q_true)/q_true)}, p={abs((p-p_true)/p_true)}")
+    # print(f"Numerical solution: q={q}, p={p}")
+    # print(f"Analytical solution: q={q_true}, p={p_true}")
+    # print(f"Relative error: q={abs((q-q_true)/q_true)}, p={abs((p-p_true)/p_true)}")
     
     initial_energy = 0.5 * p0**2 + U(q0)
     final_energy = 0.5 * p**2 + U(q)
@@ -155,4 +157,3 @@ def test_leapfrog():
     assert rel_energy_error < 1e-4, "Energy should be approximately conserved"
 
 test_leapfrog()
-test_tree_building()

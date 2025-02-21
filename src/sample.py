@@ -1,5 +1,5 @@
-from nuts import nuts_draw
-from matrix_adaptation import full_matrix_adapt, diag_matrix_adapt, low_rank_matrix_adapt
+from src.nuts import nuts_draw
+from src.matrix_adaptation import full_matrix_adapt, diag_matrix_adapt, low_rank_matrix_adapt
 import numpy as np
 from tqdm import tqdm
 
@@ -18,7 +18,7 @@ def sample(U, grad_U, epsilon, current_q, n_samples, constrainer, n_warmup=1000,
 
     for i in tqdm(range(n_warmup), desc="Warmup"):
         current_q, current_grad = nuts_draw(U, grad_U, epsilon, current_q, mass_matrix)
-        warmup_samples[:, i] = current_q
+        warmup_samples[:, i] = constrainer(current_q)
 
         if adapt_mass_matrix:
             draws_buffer[:, buffer_idx] = current_q
@@ -36,8 +36,7 @@ def sample(U, grad_U, epsilon, current_q, n_samples, constrainer, n_warmup=1000,
 
     for i in tqdm(range(n_samples), desc="Sampling"):
         current_q, current_grad = nuts_draw(U, grad_U, epsilon, current_q, mass_matrix)
-        samples[i] = current_q
-    
+        samples[i] = constrainer(current_q)
+
     metrics = np.array(metrics)
-    print(np.mean(samples, axis=0))
     return warmup_samples, samples, metrics

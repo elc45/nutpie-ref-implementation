@@ -1,5 +1,4 @@
 import numpy as np
-import mypy
 
 def leapfrog(q: np.ndarray, p: np.ndarray, epsilon: np.float64, grad_U, inv_mass_matrix: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
     p = p - 0.5 * epsilon * grad_U(q)
@@ -27,8 +26,6 @@ def nuts_draw(U, grad_U, epsilon: np.float64, current_q: np.ndarray, mass_matrix
     q = current_q.copy()
     p = np.random.multivariate_normal(np.zeros_like(q), mass_matrix)
     
-    H0 = U(q) + 0.5 * np.sum(p**2)
-    
     q_minus = q.copy()
     q_plus = q.copy() 
     p_minus = p.copy()
@@ -36,6 +33,7 @@ def nuts_draw(U, grad_U, epsilon: np.float64, current_q: np.ndarray, mass_matrix
     j = 0
     n = 1
     s = 1
+    u = np.random.uniform(0, np.exp(U(q) - 0.5 * np.sum(p**2)))
     FORWARD = 1
     BACKWARD = -1
 
@@ -43,31 +41,25 @@ def nuts_draw(U, grad_U, epsilon: np.float64, current_q: np.ndarray, mass_matrix
         v = np.random.choice([FORWARD, BACKWARD])
         if v == BACKWARD:
             q_minus, p_minus, _, _, q_prime, n_prime, s_prime = build_tree(
-                q_minus, p_minus, BACKWARD, j, epsilon, U, grad_U, H0, inv_mass_matrix)
+                q_minus, p_minus, u, BACKWARD, j, epsilon, U, grad_U, inv_mass_matrix)
         else:
-            q_plus, p_plus, _, _, q_prime, n_prime, s_prime = build_tree(
-                q_plus, p_plus, FORWARD, j, epsilon, U, grad_U, H0, inv_mass_matrix)
+            _, _, q_plus, p_plus, q_prime, n_prime, s_prime = build_tree(
+                q_plus, p_plus, u, FORWARD, j, epsilon, U, grad_U, inv_mass_matrix)
         
+        if s_prime == 1:
+            current_q = q_prime if np.random.rand() < n_prime / n else current_q
+
         n += n_prime
         s = s_prime * (np.dot(q_plus - q_minus, p_minus) >= 0) * \
-            (np.dot(q_plus - q_minus, p_plus) >= 0)
+        (np.dot(q_plus - q_minus, p_plus) >= 0)
         
         j += 1
-        
-        if j > max_depth:
-            break
 
-    H_new = U(q_prime) + 0.5 * np.sum(p**2)
-
-    delta_H = H_new - H0
-    accept_prob = np.exp(delta_H)
-
-    current_q = q_prime if np.random.rand() < accept_prob else current_q
     final_grad = grad_U(current_q)
     
     return current_q, final_grad
 
-def build_tree(q, p, v, j, epsilon, U, grad_U, H0, inv_mass_matrix):
+def build_tree(q, p, u, v, j, epsilon, U, grad_U, inv_mass_matrix):
     """
     Build a binary tree of states by recursively doubling trajectory length.
     
@@ -82,44 +74,43 @@ def build_tree(q, p, v, j, epsilon, U, grad_U, H0, inv_mass_matrix):
         H0: float - initial value of Hamiltonian
         
     Returns:
-        q: array - final position
-        p: array - final momentum
         q_minus: array - leftmost position
         p_minus: array - leftmost momentum
+        q_plus: array - rightmost position
+        p_plus: array - rightmost momentum
         q_propose: array - proposed new position
         n_propose: int - number of valid points in the subtree
         s_propose: int - whether the subtree is valid (1) or not (0)
     """
     if j == 0:
         p_new, q_new = leapfrog(q, p, epsilon, grad_U, inv_mass_matrix)
-
-        H_new = U(q_new) + 0.5 * np.sum(p_new**2)
         
-        n_valid = int((H_new - H0) > -1000)
-        if not n_valid:
-            print("divergence")
-        s_valid = int((H_new - H0) > -100)
+        L = U(q_new) - 0.5 * np.sum(p_new**2)
+
+        n_valid = u < np.exp(L)
+        s_valid = int(L > np.log(u) - 1000)
         
         return q_new, p_new, q_new, p_new, q_new, n_valid, s_valid
         
     else:
-        q_new, p_new, q_minus, p_minus, q_propose, n_propose, s_propose = build_tree(
-            q, p, v, j-1, epsilon, U, grad_U, H0, inv_mass_matrix)
+        q_minus, p_minus, q_plus, p_plus, q_propose, n_valid, s_propose = build_tree(
+            q, p, u, v, j-1, epsilon, U, grad_U, inv_mass_matrix)
             
         if s_propose == 1:
             if v == -1:
-                q_minus, p_minus, _, _, q_prime, n_prime, s_prime = build_tree(
-                    q_minus, p_minus, v, j-1, epsilon, U, grad_U, H0, inv_mass_matrix)
+                q_minus, p_minus, _, _, q_prime, n_double_prime, s_prime = build_tree(
+                    q_minus, p_minus, u, v, j-1, epsilon, U, grad_U, inv_mass_matrix)
             else:
-                q_new, p_new, _, _, q_prime, n_prime, s_prime = build_tree(
-                    q_new, p_new, v, j-1, epsilon, U, grad_U, H0, inv_mass_matrix)
+                _, _, q_plus, p_plus, q_prime, n_double_prime, s_prime = build_tree(
+                    q_plus, p_plus, u, v, j-1, epsilon, U, grad_U, inv_mass_matrix)
+
+            if n_valid + n_double_prime > 0:
+                if np.random.rand() < n_double_prime/(n_valid + n_double_prime):
+                    q_propose = q_prime.copy()
                     
-            if np.random.rand() < n_prime/(n_propose + n_prime):
-                q_propose = q_prime.copy()
-                
-            s_propose = s_prime * (np.dot(q_new - q_minus, p_minus) >= 0) * \
-                       (np.dot(q_new - q_minus, p_new) >= 0)
+            s_propose = s_prime * (np.dot(q_plus - q_minus, p_minus) >= 0) * \
+                       (np.dot(q_plus - q_minus, p_plus) >= 0)
             
-            n_propose = n_propose + n_prime
+            n_valid += n_double_prime
             
-        return q_new, p_new, q_minus, p_minus, q_propose, n_propose, s_propose
+        return q_minus, p_minus, q_plus, p_plus, q_propose, n_valid, s_propose

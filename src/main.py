@@ -66,25 +66,6 @@ mass_matrices = mass_matrices.reshape((1, n_matrices, n_params, n_params))
 warmup_samples = warmup_samples.reshape((1, warmup_iters, n_params))
 trace = trace.reshape((1, n_samples, n_params))
 
-import matplotlib.pyplot as plt
-
-# Create a figure with subplots for each parameter
-n_params = len(param_names)
-fig, axes = plt.subplots(n_params, 1, figsize=(10, 3*n_params))
-if n_params == 1:
-    axes = [axes]
-
-# Plot histogram for each parameter
-for i, (param, ax) in enumerate(zip(param_names, axes)):
-    param_samples = trace[0, :, i]
-    ax.hist(param_samples, bins=50, density=True)
-    ax.set_title(f'Histogram of {param}')
-    ax.set_xlabel('Value')
-    ax.set_ylabel('Density')
-
-plt.tight_layout()
-plt.show()
-
 draws_dict = {}
 for param in param_names:
     param_idx = param_names.index(param)

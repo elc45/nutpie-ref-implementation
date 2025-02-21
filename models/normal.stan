@@ -1,9 +1,7 @@
-data {
-  int<lower=0> D;
-}
 parameters {
-  vector[D] y;
+  real y;
 }
+
 model {
-  y ~ normal(0, 1);
+  y ~ normal(-15, 1);
 }
