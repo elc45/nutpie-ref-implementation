@@ -1,6 +1,15 @@
 *.npy
 *.csv
+*.nc
+*.so
 tests.ipynb
 **/__pycache__/
 .vscode/launch.json
-tests/az_trace.nc
+tests/outputs/
+models/eight.stan
+tests/test_data.json
+.DS_Store
+nutpie_ref.egg-info/PKG-INFO
+nutpie_ref.egg-info/SOURCES.txt
+nutpie_ref.egg-info/dependency_links.txt
+nutpie_ref.egg-info/top_level.txt
