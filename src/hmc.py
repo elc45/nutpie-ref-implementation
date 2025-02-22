@@ -1,31 +1,32 @@
 import numpy as np
 from tqdm import tqdm
 
-def leapfrog(q: np.ndarray, p: np.ndarray, epsilon: np.float64, grad_U, inv_mass_matrix: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+def leapfrog(q: np.ndarray, p: np.ndarray, epsilon: np.float64, grad_U, inv_mass_matrix: np.ndarray):
     p = p - 0.5 * epsilon * grad_U(q)
-    q = q + epsilon * inv_mass_matrix @ p
+    q = q + epsilon * np.dot(inv_mass_matrix, p)
     p = p - 0.5 * epsilon * grad_U(q)
     return q, p
 
-q = np.random.randint(0, 10, size=1)
-p = np.random.randint(0, 10, size=1)
-
-def sample_hmc(U, grad_U, epsilon, q, n_samples, n_warmup=1000):
-    dim = len(q)
+def sample_hmc(U, grad_U, epsilon, q_init, n_samples, L=10):
+    dim = len(q_init)
     samples = np.zeros((n_samples, dim))
-    warmup_samples = np.zeros((dim, n_warmup))
+    proposed_samples = np.zeros((n_samples, L, dim))
     mass_matrix = np.eye(dim)
-
-    for i in tqdm(range(n_warmup), desc="Warmup"):
-        q_propose, _ = leapfrog(q, p, epsilon, grad_U, mass_matrix)
-        q_new = q_propose if np.random.rand() < np.exp(U(q_propose) - U(q)) else q
-        warmup_samples[:, i] = q_new
-        p = np.random.multivariate_normal(np.zeros_like(q), mass_matrix)
+    q = q_init.copy()
+    p = np.random.multivariate_normal(np.zeros_like(q_init), mass_matrix)
 
     for i in tqdm(range(n_samples), desc="Sampling"):
-        q_propose, _ = leapfrog(q, p, epsilon, grad_U, mass_matrix)
-        q_new = q_propose if np.random.rand() < np.exp(U(q_propose) - U(q)) else q
-        samples[i] = q_new
+        q_propose = q.copy()
+        p_propose = p.copy()
+
+        for j in range(L):
+            q_propose, p_propose = leapfrog(q_propose, p_propose, epsilon, grad_U, mass_matrix)
+        
+        H_old = U(q) + 0.5 * np.dot(p, p)
+        H_new = U(q_propose) + 0.5 * np.dot(p_propose, p_propose)
+        q = q_propose if np.random.rand() < np.exp(H_old - H_new) else q
+        samples[i,:] = q
+
         p = np.random.multivariate_normal(np.zeros_like(q), mass_matrix)
 
-    return warmup_samples, samples
+    return samples, proposed_samples

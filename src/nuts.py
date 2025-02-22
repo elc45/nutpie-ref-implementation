@@ -1,12 +1,12 @@
 import numpy as np
 
-def leapfrog(q: np.ndarray, p: np.ndarray, epsilon: np.float64, grad_U, inv_mass_matrix: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+def leapfrog(q: np.ndarray, p: np.ndarray, epsilon: np.float64, grad_U, inv_mass_matrix: np.ndarray):
     p = p - 0.5 * epsilon * grad_U(q)
-    q = q + epsilon * inv_mass_matrix @ p
+    q = q + epsilon * np.dot(inv_mass_matrix, p)
     p = p - 0.5 * epsilon * grad_U(q)
     return q, p
 
-def nuts_draw(U, grad_U, epsilon: np.float64, current_q: np.ndarray, mass_matrix: np.ndarray | None = None, max_depth: int = 10) -> tuple[np.ndarray, np.ndarray]:
+def nuts_draw(U, grad_U, epsilon: np.float64, current_q: np.ndarray, mass_matrix: np.ndarray | None = None) -> tuple[np.ndarray, np.ndarray]:
     """
     No-U-Turn Sampler (NUTS) implementation
     
@@ -33,7 +33,7 @@ def nuts_draw(U, grad_U, epsilon: np.float64, current_q: np.ndarray, mass_matrix
     j = 0
     n = 1
     s = 1
-    u = np.random.uniform(0, np.exp(U(q) - 0.5 * np.sum(p**2)))
+    u = np.random.uniform(0, np.exp(-U(q) - 0.5 * np.dot(p, p)))
     FORWARD = 1
     BACKWARD = -1
 
@@ -56,7 +56,6 @@ def nuts_draw(U, grad_U, epsilon: np.float64, current_q: np.ndarray, mass_matrix
         j += 1
 
     final_grad = grad_U(current_q)
-    
     return current_q, final_grad
 
 def build_tree(q, p, u, v, j, epsilon, U, grad_U, inv_mass_matrix):
@@ -83,12 +82,12 @@ def build_tree(q, p, u, v, j, epsilon, U, grad_U, inv_mass_matrix):
         s_propose: int - whether the subtree is valid (1) or not (0)
     """
     if j == 0:
-        p_new, q_new = leapfrog(q, p, epsilon, grad_U, inv_mass_matrix)
+        q_new, p_new = leapfrog(q, p, epsilon, grad_U, inv_mass_matrix)
         
-        L = U(q_new) - 0.5 * np.sum(p_new**2)
-
-        n_valid = u < np.exp(L)
-        s_valid = int(L > np.log(u) - 1000)
+        L = -U(q_new) - 0.5 * np.dot(p_new, p_new)
+        
+        n_valid = int(u < np.exp(L))
+        s_valid = int(L - np.log(u) > -1000)
         
         return q_new, p_new, q_new, p_new, q_new, n_valid, s_valid
         

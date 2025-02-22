@@ -1,7 +1,12 @@
+data {
+  int<lower=1> D;  // dimension
+}
+
 parameters {
-  real y;
+  vector[D] y;
 }
 
 model {
-  y ~ normal(-15, 1);
+  // Standard multivariate normal with identity covariance matrix
+  y ~ multi_normal(rep_vector(-17, D), diag_matrix(rep_vector(1, D)));
 }

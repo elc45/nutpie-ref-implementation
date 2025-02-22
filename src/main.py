@@ -45,10 +45,10 @@ n_params = model.param_num()
 param_names = model.param_names()
 
 def U(q):
-    return model.log_density_gradient(q)[0]
+    return model.log_density(q) * -1
 
 def grad_U(q):
-    return model.log_density_gradient(q)[1]
+    return model.log_density_gradient(q)[1] * -1
 
 constrainer = model.param_constrain
 init_point = np.random.randn(n_params)
