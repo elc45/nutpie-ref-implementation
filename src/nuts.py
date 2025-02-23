@@ -1,12 +1,13 @@
 import numpy as np
+from typing import Callable
 
-def leapfrog(q: np.ndarray, p: np.ndarray, epsilon: np.float64, grad_U, inv_mass_matrix: np.ndarray):
+def leapfrog(q: np.ndarray, p: np.ndarray, epsilon: np.float64, grad_U: Callable, inv_mass_matrix: np.ndarray):
     p = p - 0.5 * epsilon * grad_U(q)
     q = q + epsilon * np.dot(inv_mass_matrix, p)
     p = p - 0.5 * epsilon * grad_U(q)
     return q, p
 
-def nuts_draw(U, grad_U, epsilon: np.float64, current_q: np.ndarray, mass_matrix: np.ndarray | None = None) -> tuple[np.ndarray, np.ndarray]:
+def draw(U: Callable, grad_U: Callable, epsilon: np.float64, current_q: np.ndarray, mass_matrix: np.ndarray | None = None) -> tuple[np.ndarray, np.ndarray]:
     """
     No-U-Turn Sampler (NUTS) implementation
     

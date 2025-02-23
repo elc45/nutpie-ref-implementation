@@ -1,9 +1,10 @@
-from src.nuts import nuts_draw
-from src.matrix_adaptation import full_matrix_adapt, diag_matrix_adapt, low_rank_matrix_adapt
+from src import nuts
+from src import matrix_adaptation
 import numpy as np
 from tqdm import tqdm
+from typing import Callable
 
-def sample(U, grad_U, epsilon, current_q, n_samples, constrainer, n_warmup=1000, adaptation_window=50, adapt_mass_matrix=True, matrix_adapt_type=None):
+def sample(U: Callable, grad_U: Callable, epsilon: np.float64, current_q: np.ndarray, n_samples: int, constrainer: Callable, n_warmup: int = 1000, adaptation_window: int = 50, adapt_mass_matrix: bool = False, matrix_adapt_type: str | None = None) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     dim = len(current_q)
     samples = np.zeros((n_samples, dim))
     warmup_samples = np.zeros((dim, n_warmup))
@@ -17,7 +18,7 @@ def sample(U, grad_U, epsilon, current_q, n_samples, constrainer, n_warmup=1000,
     metrics = []
 
     for i in tqdm(range(n_warmup), desc="Warmup"):
-        current_q, current_grad = nuts_draw(U, grad_U, epsilon, current_q, mass_matrix)
+        current_q, current_grad = nuts.draw(U, grad_U, epsilon, current_q, mass_matrix)
         warmup_samples[:, i] = constrainer(current_q)
 
         if adapt_mass_matrix:
@@ -27,15 +28,16 @@ def sample(U, grad_U, epsilon, current_q, n_samples, constrainer, n_warmup=1000,
         
             if (i + 1) % adaptation_window == 0 and i > 0:
                 if matrix_adapt_type == 'full':
-                    mass_matrix = full_matrix_adapt(draws_buffer, grads_buffer)
+                    mass_matrix = matrix_adaptation.full_matrix_adapt(draws_buffer, grads_buffer)
                 elif matrix_adapt_type == 'diag':
-                    mass_matrix = diag_matrix_adapt(draws_buffer, grads_buffer)
+                    mass_matrix = matrix_adaptation.diag_matrix_adapt(draws_buffer, grads_buffer)
                 elif matrix_adapt_type == 'low_rank':
-                    mass_matrix = low_rank_matrix_adapt(draws_buffer, grads_buffer)
-                metrics.append(mass_matrix.copy())
+                    mass_matrix = matrix_adaptation.low_rank_matrix_adapt(draws_buffer, grads_buffer)
+        
+        metrics.append(mass_matrix.copy())
 
     for i in tqdm(range(n_samples), desc="Sampling"):
-        current_q, current_grad = nuts_draw(U, grad_U, epsilon, current_q, mass_matrix)
+        current_q, current_grad = nuts.draw(U, grad_U, epsilon, current_q, mass_matrix)
         samples[i] = constrainer(current_q)
 
     metrics = np.array(metrics)
