@@ -41,11 +41,11 @@ def draw(U: Callable, grad_U: Callable, epsilon: np.float64, current_q: np.ndarr
     while s == 1:
         v = np.random.choice([FORWARD, BACKWARD])
         if v == BACKWARD:
-            q_minus, p_minus, _, _, q_prime, n_prime, s_prime = build_tree(
-                q_minus, p_minus, u, BACKWARD, j, epsilon, U, grad_U, inv_mass_matrix)
+            q_minus, p_minus, _, _, q_prime, n_prime, s_prime, alpha, n_alpha = build_tree(
+                q_minus, p_minus, u, BACKWARD, j, epsilon, U, grad_U, inv_mass_matrix, current_q, p)
         else:
-            _, _, q_plus, p_plus, q_prime, n_prime, s_prime = build_tree(
-                q_plus, p_plus, u, FORWARD, j, epsilon, U, grad_U, inv_mass_matrix)
+            _, _, q_plus, p_plus, q_prime, n_prime, s_prime, alpha, n_alpha = build_tree(
+                q_plus, p_plus, u, FORWARD, j, epsilon, U, grad_U, inv_mass_matrix, current_q, p)
         
         if s_prime == 1:
             current_q = q_prime if np.random.rand() < n_prime / n else current_q
@@ -57,9 +57,9 @@ def draw(U: Callable, grad_U: Callable, epsilon: np.float64, current_q: np.ndarr
         j += 1
 
     final_grad = grad_U(current_q)
-    return current_q, final_grad
+    return current_q, final_grad, alpha, n_alpha
 
-def build_tree(q, p, u, v, j, epsilon, U, grad_U, inv_mass_matrix):
+def build_tree(q, p, u, v, j, epsilon, U, grad_U, inv_mass_matrix, q0, p0):
     """
     Build a binary tree of states by recursively doubling trajectory length.
     
@@ -72,6 +72,8 @@ def build_tree(q, p, u, v, j, epsilon, U, grad_U, inv_mass_matrix):
         U: callable - potential energy function
         grad_U: callable - gradient of potential energy
         H0: float - initial value of Hamiltonian
+        q0: array - initial position
+        p0: array - initial momentum
         
     Returns:
         q_minus: array - leftmost position
@@ -81,6 +83,8 @@ def build_tree(q, p, u, v, j, epsilon, U, grad_U, inv_mass_matrix):
         q_propose: array - proposed new position
         n_propose: int - number of valid points in the subtree
         s_propose: int - whether the subtree is valid (1) or not (0)
+        alpha_prime: float - sum of alpha values in the subtree
+        n_alpha_prime: int - number of alpha values in the subtree
     """
     if j == 0:
         q_new, p_new = leapfrog(q, p, epsilon, grad_U, inv_mass_matrix)
@@ -90,27 +94,30 @@ def build_tree(q, p, u, v, j, epsilon, U, grad_U, inv_mass_matrix):
         n_valid = int(u < np.exp(L))
         s_valid = int(L - np.log(u) > -1000)
         
-        return q_new, p_new, q_new, p_new, q_new, n_valid, s_valid
+        return q_new, p_new, q_new, p_new, q_new, n_valid, s_valid, min(1, np.exp(L + U(q0) + 0.5 * np.dot(p0,p0))), 1
         
     else:
-        q_minus, p_minus, q_plus, p_plus, q_propose, n_valid, s_propose = build_tree(
-            q, p, u, v, j-1, epsilon, U, grad_U, inv_mass_matrix)
+        q_minus, p_minus, q_plus, p_plus, q_propose, n_valid, s_propose, alpha_prime, n_alpha_prime = build_tree(
+            q, p, u, v, j-1, epsilon, U, grad_U, inv_mass_matrix, q0, p0)
             
         if s_propose == 1:
             if v == -1:
-                q_minus, p_minus, _, _, q_prime, n_double_prime, s_prime = build_tree(
-                    q_minus, p_minus, u, v, j-1, epsilon, U, grad_U, inv_mass_matrix)
+                q_minus, p_minus, _, _, q_prime, n_double_prime, s_prime, alpha_double_prime, n_alpha_double_prime = build_tree(
+                    q_minus, p_minus, u, v, j-1, epsilon, U, grad_U, inv_mass_matrix, q0, p0)
             else:
-                _, _, q_plus, p_plus, q_prime, n_double_prime, s_prime = build_tree(
-                    q_plus, p_plus, u, v, j-1, epsilon, U, grad_U, inv_mass_matrix)
+                _, _, q_plus, p_plus, q_prime, n_double_prime, s_prime, alpha_double_prime, n_alpha_double_prime = build_tree(
+                    q_plus, p_plus, u, v, j-1, epsilon, U, grad_U, inv_mass_matrix, q0, p0)
 
             if n_valid + n_double_prime > 0:
                 if np.random.rand() < n_double_prime/(n_valid + n_double_prime):
                     q_propose = q_prime.copy()
-                    
+            
+            alpha_prime = alpha_prime + alpha_double_prime
+            n_alpha_prime = n_alpha_prime + n_alpha_double_prime
+
             s_propose = s_prime * (np.dot(q_plus - q_minus, p_minus) >= 0) * \
                        (np.dot(q_plus - q_minus, p_plus) >= 0)
             
             n_valid += n_double_prime
             
-        return q_minus, p_minus, q_plus, p_plus, q_propose, n_valid, s_propose
+        return q_minus, p_minus, q_plus, p_plus, q_propose, n_valid, s_propose, alpha_prime, n_alpha_prime
