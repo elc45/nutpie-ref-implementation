@@ -7,4 +7,4 @@ Required arguments:
 Optional arguments:
 - `--warmup`: Number of warmup iterations (default: `200`)
 - `--adapt_mass_matrix`: Whether to adapt the mass matrix during warmup (default: `true`)
-- `--output_path`: Path to save the trace file (default: `trace.nc`)
+- `--output_path`: Path to save the trace as an ArviZ `InferenceData` object in a NetCDF file (default: `trace.nc`)

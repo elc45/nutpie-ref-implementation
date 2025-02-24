@@ -1,4 +1,3 @@
-import json
 import warnings
 import argparse
 import numpy as np
@@ -23,13 +22,17 @@ parser.add_argument('--n_warmup', type=int, required=False,default=200,
 parser.add_argument('--adapt_mass_matrix', type=lambda x: x.lower() in ['true', '1', 'yes', 't'], 
                    required=False, default=False,
                    help='Whether to adapt the mass matrix')
-parser.add_argument('--output_path', type=str, required=False, default='trace.npy',
+parser.add_argument('--output_path', type=str, required=False, default='trace.nc',
                    help='Output path for the trace')
 parser.add_argument('--matrix_adapt_type', type=str, required=False, default='diag',
                    choices=['diag', 'low_rank', 'full'],
                    help='Type of mass matrix adaptation to use')
 
 args = parser.parse_args()
+
+output_path = args.output_path
+if not output_path.endswith('.nc'):
+    raise ValueError("Output path must be to a .nc (NetCDF) file")
 
 model_name = args.model
 n_samples = args.n_samples
