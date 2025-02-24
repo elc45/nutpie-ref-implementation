@@ -25,7 +25,7 @@ def draw(U: Callable, grad_U: Callable, epsilon: np.float64, current_q: np.ndarr
     inv_mass_matrix = np.linalg.inv(mass_matrix)
 
     q = current_q.copy()
-    p = np.random.multivariate_normal(np.zeros_like(q), mass_matrix)
+    p = np.random.multivariate_normal(np.zeros_like(q), cov=np.eye(len(q)))
     
     q_minus = q.copy()
     q_plus = q.copy() 
