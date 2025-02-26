@@ -1,17 +1,14 @@
 import numpy as np
 
 def full_matrix_adapt(draw_matrix, grad_matrix):
-
-    cov = draw_matrix @ draw_matrix.T
-    diag = np.sqrt(np.diag(cov))
-    draw_cov = cov / np.outer(diag, diag)
-
-    cov = grad_matrix @ grad_matrix.T
-    diag = np.sqrt(np.diag(cov))
-    grad_cov = cov / np.outer(diag, diag)
-    inv_grad_cov = np.linalg.inv(grad_cov)
+    draw_cov = np.cov(draw_matrix)
+    grad_cov = np.cov(grad_matrix)
+    try:
+        inv_grad_cov = np.linalg.inv(grad_cov)
+    except np.linalg.LinAlgError:
+        inv_grad_cov = np.linalg.pinv(grad_cov)
+        print(grad_cov)
     Sigma = spdm(draw_cov, inv_grad_cov)
-
     return Sigma
 
 def low_rank_matrix_adapt(draw_matrix, grad_matrix, gamma=1e-5, cutoff=0.01):
@@ -65,8 +62,6 @@ def spdm(A, B):
     """
 
     eigvals_A, eigvecs_A = np.linalg.eigh(A)
-
-    # Clip eigenvalues to ensure they're positive
     eigvals_A = np.maximum(eigvals_A, 1e-10)
 
     A_sqrt = eigvecs_A @ np.diag(np.sqrt(eigvals_A)) @ eigvecs_A.T
@@ -75,7 +70,8 @@ def spdm(A, B):
     M = A_sqrt @ B @ A_sqrt
 
     eigvals_M, eigvecs_M = np.linalg.eigh(M)
-    M_sqrt = eigvecs_M @ np.diag(np.sqrt(eigvals_M)) @ eigvecs_M.T
+    eigvals_M = np.maximum(eigvals_M, 1e-10)
+    M_sqrt = eigvecs_M @ np.diag(eigvals_M) @ eigvecs_M.T
 
     spdm_matrix = A_inv_sqrt @ M_sqrt @ A_inv_sqrt
     
