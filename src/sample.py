@@ -5,7 +5,7 @@ from tqdm import tqdm
 from typing import Callable
 from src import step_size
 
-def sample(U: Callable, grad_U: Callable, epsilon: np.float64, target_accept_rate: np.float64, current_q: np.ndarray, n_samples: int, constrainer: Callable, n_warmup: int = 1000, adaptation_window: int = 50, adapt_mass_matrix: bool = False, matrix_adapt_type: str | None = None, adapt_step_size: bool = True) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+def sample(U: Callable, grad_U: Callable, epsilon: np.float64, target_accept_rate: np.float64, current_q: np.ndarray, n_samples: int, constrainer: Callable, n_warmup: int = 1000, adapt_window: int = 50, adapt_mass_matrix: bool = False, matrix_adapt_type: str | None = None, adapt_step_size: bool = True) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     dim = len(current_q)
     samples = np.zeros((n_samples, dim))
     warmup_samples = np.zeros((dim, n_warmup))
@@ -19,8 +19,8 @@ def sample(U: Callable, grad_U: Callable, epsilon: np.float64, target_accept_rat
     epsilon_bar = 1
 
     if adapt_mass_matrix:
-        draws_buffer = np.zeros((dim, adaptation_window))
-        grads_buffer = np.zeros((dim, adaptation_window))
+        draws_buffer = np.zeros((dim, adapt_window))
+        grads_buffer = np.zeros((dim, adapt_window))
         buffer_idx = 0
     
     metrics = []
@@ -40,9 +40,8 @@ def sample(U: Callable, grad_U: Callable, epsilon: np.float64, target_accept_rat
         if adapt_mass_matrix:
             draws_buffer[:, buffer_idx] = current_q
             grads_buffer[:, buffer_idx] = current_grad
-            buffer_idx = (buffer_idx + 1) % adaptation_window
-        
-            if (i + 1) % adaptation_window == 0 and i > 0:
+            buffer_idx = (buffer_idx + 1) % adapt_window
+            if i % adapt_window == 0 and i > 200:
                 if matrix_adapt_type == 'full':
                     mass_matrix = matrix_adaptation.full_matrix_adapt(draws_buffer, grads_buffer)
                 elif matrix_adapt_type == 'diag':
@@ -51,6 +50,7 @@ def sample(U: Callable, grad_U: Callable, epsilon: np.float64, target_accept_rat
                     mass_matrix = matrix_adaptation.low_rank_matrix_adapt(draws_buffer, grads_buffer)
         
         metrics.append(mass_matrix.copy())
+        # mass_matrix = np.eye(dim)
 
     for i in tqdm(range(n_samples), desc="Sampling"):
         current_q, current_grad, _, _ = nuts.draw(U, grad_U, epsilon, current_q, mass_matrix)

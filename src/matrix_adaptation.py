@@ -1,13 +1,17 @@
 import numpy as np
 
-def full_matrix_adapt(draw_matrix, grad_matrix):
-    draw_cov = np.cov(draw_matrix)
-    grad_cov = np.cov(grad_matrix)
+def full_matrix_adapt(draw_matrix, grad_matrix, gamma=1e-5):
+    d = draw_matrix.shape[0]
+    draws_normalized = (draw_matrix - draw_matrix.mean(axis=1)[:, np.newaxis]) / draw_matrix.std(axis=1)[:, np.newaxis]
+    grads_normalized = (grad_matrix - grad_matrix.mean(axis=1)[:, np.newaxis]) / grad_matrix.std(axis=1)[:, np.newaxis]
+
+    draw_cov = np.cov(draws_normalized) + np.eye(d) * gamma
+    grad_cov = np.cov(grads_normalized) + np.eye(d) * gamma
+
     try:
         inv_grad_cov = np.linalg.inv(grad_cov)
     except np.linalg.LinAlgError:
         inv_grad_cov = np.linalg.pinv(grad_cov)
-        print(grad_cov)
     Sigma = spdm(draw_cov, inv_grad_cov)
     return Sigma
 
