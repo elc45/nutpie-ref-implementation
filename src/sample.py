@@ -5,7 +5,10 @@ from tqdm import tqdm
 from typing import Callable
 from src import step_size
 
-def sample(U: Callable, grad_U: Callable, epsilon: np.float64, target_accept_rate: np.float64, current_q: np.ndarray, n_samples: int, constrainer: Callable, n_warmup: int = 1000, adapt_window: int = 50, adapt_mass_matrix: bool = False, matrix_adapt_type: str | None = None, adapt_step_size: bool = True) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+def sample(U: Callable, grad_U: Callable, epsilon: np.float64, current_q: np.ndarray, n_samples: int, 
+           constrainer: Callable, n_warmup: int = 1000, adapt_window: int = 50, adapt_mass_matrix: bool = False, 
+           matrix_adapt_type: str | None = None, adapt_step_size: bool = True, target_accept_rate: np.float64 = 0.8) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    
     dim = len(current_q)
     samples = np.zeros((n_samples, dim))
     warmup_samples = np.zeros((dim, n_warmup))

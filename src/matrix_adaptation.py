@@ -1,26 +1,48 @@
 import numpy as np
 
 def full_matrix_adapt(draw_matrix, grad_matrix, gamma=1e-5):
-    d = draw_matrix.shape[0]
-    draws_normalized = (draw_matrix - draw_matrix.mean(axis=1)[:, np.newaxis]) / draw_matrix.std(axis=1)[:, np.newaxis]
-    grads_normalized = (grad_matrix - grad_matrix.mean(axis=1)[:, np.newaxis]) / grad_matrix.std(axis=1)[:, np.newaxis]
+    d, n_draws = draw_matrix.shape
 
-    draw_cov = np.cov(draws_normalized) + np.eye(d) * gamma
-    grad_cov = np.cov(grads_normalized) + np.eye(d) * gamma
-
-    try:
-        inv_grad_cov = np.linalg.inv(grad_cov)
-    except np.linalg.LinAlgError:
-        inv_grad_cov = np.linalg.pinv(grad_cov)
-    Sigma = spdm(draw_cov, inv_grad_cov)
+    draw_means = draw_matrix.mean(axis=1)
+    grad_means = grad_matrix.mean(axis=1)
+    
+    draw_stds = np.std(draw_matrix, axis=1)
+    grad_stds = np.std(grad_matrix, axis=1)
+    
+    stds = np.sqrt(draw_stds / grad_stds)
+    
+    draw_scales = 1.0 / (stds * n_draws)
+    grad_scales = stds / n_draws
+    
+    draws_rescaled = (draw_matrix - draw_means[:, None]) * draw_scales[:, None]
+    grads_rescaled = (grad_matrix - grad_means[:, None]) * grad_scales[:, None]
+    
+    draw_cov = np.cov(draws_rescaled) + np.eye(d) * gamma
+    grad_cov = np.cov(grads_rescaled) + np.eye(d) * gamma
+        
+    Sigma = spdm(draw_cov, grad_cov)
     return Sigma
 
 def low_rank_matrix_adapt(draw_matrix, grad_matrix, gamma=1e-5, cutoff=0.01):
 
-    draws_normalized = (draw_matrix - draw_matrix.mean(axis=0)[:, np.newaxis]) / draw_matrix.std(axis=0)[:, np.newaxis]
-    grads_normalized = (grad_matrix - grad_matrix.mean(axis=0)[:, np.newaxis]) / grad_matrix.std(axis=0)[:, np.newaxis]
-    U_draw, _, _ = np.linalg.svd(draws_normalized, full_matrices=False)
-    U_grad, _, _ = np.linalg.svd(grads_normalized, full_matrices=False)
+    d, n_draws = draw_matrix.shape
+
+    draw_means = draw_matrix.mean(axis=1)
+    grad_means = grad_matrix.mean(axis=1)
+    
+    draw_stds = np.std(draw_matrix, axis=1)
+    grad_stds = np.std(grad_matrix, axis=1)
+    
+    stds = np.sqrt(draw_stds / grad_stds)
+    
+    draw_scales = 1.0 / (stds * n_draws)
+    grad_scales = stds / n_draws
+    
+    draws_rescaled = (draw_matrix - draw_means[:, None]) * draw_scales[:, None]
+    grads_rescaled = (grad_matrix - grad_means[:, None]) * grad_scales[:, None]
+
+    U_draw, _, _ = np.linalg.svd(draws_rescaled, full_matrices=False)
+    U_grad, _, _ = np.linalg.svd(grads_rescaled, full_matrices=False)
 
     S = np.hstack([U_draw, U_grad])
 
@@ -29,8 +51,8 @@ def low_rank_matrix_adapt(draw_matrix, grad_matrix, gamma=1e-5, cutoff=0.01):
     P_draw = Q.T @ draw_matrix
     P_grad = Q.T @ grad_matrix
 
-    C_draw = P_draw @ P_draw.T + gamma * np.eye(Q.shape[1])
-    C_grad = P_grad @ P_grad.T + gamma * np.eye(Q.shape[1])
+    C_draw = P_draw @ P_draw.T + gamma * np.eye(d)
+    C_grad = P_grad @ P_grad.T + gamma * np.eye(d)
 
     Sigma = spdm(C_draw, C_grad)
 
@@ -53,30 +75,19 @@ def diag_matrix_adapt(draw_matrix, grad_matrix):
     return mass_matrix
 
 def spdm(A, B):
-    """
-    Compute the symmetric positive definite mean (SPDM) of matrices A and B.
-    
-    Parameters:
-        A: np.ndarray, shape (p, p)
-        B: np.ndarray, shape (p, p)
-    
-    Returns:
-        spdm_matrix: np.ndarray, shape (p, p)
-            Symmetric positive definite mean of A and B.
-    """
 
-    eigvals_A, eigvecs_A = np.linalg.eigh(A)
-    eigvals_A = np.maximum(eigvals_A, 1e-10)
+    eigvals_B, eigvecs_B = np.linalg.eig(B)
+    # eigvals_A = np.maximum(eigvals_A, 1e-10)
 
-    A_sqrt = eigvecs_A @ np.diag(np.sqrt(eigvals_A)) @ eigvecs_A.T
-    A_inv_sqrt = eigvecs_A @ np.diag(1 / np.sqrt(eigvals_A)) @ eigvecs_A.T
+    B_sqrt = eigvecs_B @ np.diag(np.sqrt(eigvals_B)) @ eigvecs_B.T
+    B_inv_sqrt = eigvecs_B @ np.diag(1 / np.sqrt(eigvals_B)) @ eigvecs_B.T
 
-    M = A_sqrt @ B @ A_sqrt
+    M = B_sqrt @ A @ B_sqrt
 
-    eigvals_M, eigvecs_M = np.linalg.eigh(M)
-    eigvals_M = np.maximum(eigvals_M, 1e-10)
-    M_sqrt = eigvecs_M @ np.diag(eigvals_M) @ eigvecs_M.T
+    eigvals_M, eigvecs_M = np.linalg.eig(M)
+    # eigvals_M = np.maximum(eigvals_M, 1e-10)
+    M_sqrt = eigvecs_M @ np.diag(np.sqrt(eigvals_M)) @ eigvecs_M.T
 
-    spdm_matrix = A_inv_sqrt @ M_sqrt @ A_inv_sqrt
+    spdm_matrix = B_inv_sqrt @ M_sqrt @ B_inv_sqrt
     
     return spdm_matrix
