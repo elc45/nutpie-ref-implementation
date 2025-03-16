@@ -12,7 +12,7 @@ def sample(U: Callable, grad_U: Callable, epsilon: np.float64, current_q: np.nda
     dim = len(current_q)
     samples = np.zeros((n_samples, dim))
     warmup_samples = np.zeros((dim, n_warmup))
-    mass_matrix = np.eye(dim)
+    inv_mass_matrix = np.eye(dim)
 
     H = 0
     gamma = 0.05
@@ -30,7 +30,7 @@ def sample(U: Callable, grad_U: Callable, epsilon: np.float64, current_q: np.nda
 
     for i in tqdm(range(n_warmup), desc="Warmup"):
 
-        current_q, current_grad, alpha, n_alpha = nuts.draw(U, grad_U, epsilon, current_q, mass_matrix)
+        current_q, current_grad, alpha, n_alpha = nuts.draw(U, grad_U, epsilon, current_q, inv_mass_matrix)
 
         if adapt_step_size:
             if i <= n_warmup:
@@ -46,17 +46,17 @@ def sample(U: Callable, grad_U: Callable, epsilon: np.float64, current_q: np.nda
             buffer_idx = (buffer_idx + 1) % adapt_window
             if i % adapt_window == 0 and i > 200:
                 if matrix_adapt_type == 'full':
-                    mass_matrix = matrix_adaptation.full_matrix_adapt(draws_buffer, grads_buffer)
+                    inv_mass_matrix = matrix_adaptation.full_matrix_adapt(draws_buffer, grads_buffer)
                 elif matrix_adapt_type == 'diag':
-                    mass_matrix = matrix_adaptation.diag_matrix_adapt(draws_buffer, grads_buffer)
+                    inv_mass_matrix = matrix_adaptation.diag_matrix_adapt(draws_buffer, grads_buffer)
                 elif matrix_adapt_type == 'low_rank':
-                    mass_matrix = matrix_adaptation.low_rank_matrix_adapt(draws_buffer, grads_buffer)
+                    inv_mass_matrix = matrix_adaptation.low_rank_matrix_adapt(draws_buffer, grads_buffer)
         
-        metrics.append(mass_matrix.copy())
-        # mass_matrix = np.eye(dim)
+        metrics.append(inv_mass_matrix.copy())
+        # inv_mass_matrix = np.eye(dim)
 
     for i in tqdm(range(n_samples), desc="Sampling"):
-        current_q, current_grad, _, _ = nuts.draw(U, grad_U, epsilon, current_q, mass_matrix)
+        current_q, current_grad, _, _ = nuts.draw(U, grad_U, epsilon, current_q, inv_mass_matrix)
         samples[i] = constrainer(current_q)
 
     metrics = np.array(metrics)

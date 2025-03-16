@@ -7,7 +7,7 @@ def leapfrog(q: np.ndarray, p: np.ndarray, epsilon: np.float64, grad_U: Callable
     p = p - 0.5 * epsilon * grad_U(q)
     return q, p
 
-def draw(U: Callable, grad_U: Callable, epsilon: np.float64, current_q: np.ndarray, mass_matrix: np.ndarray | None = None) -> tuple[np.ndarray, np.ndarray]:
+def draw(U: Callable, grad_U: Callable, epsilon: np.float64, current_q: np.ndarray, inv_mass_matrix: np.ndarray | None = None) -> tuple[np.ndarray, np.ndarray]:
     """
     No-U-Turn Sampler (NUTS) implementation
     
@@ -19,10 +19,8 @@ def draw(U: Callable, grad_U: Callable, epsilon: np.float64, current_q: np.ndarr
         mass_matrix: array - mass matrix
     """
 
-    if mass_matrix is None:
-        mass_matrix = np.eye(len(current_q))
-
-    inv_mass_matrix = np.linalg.inv(mass_matrix)
+    if inv_mass_matrix is None:
+        inv_mass_matrix = np.eye(len(current_q))
 
     q = current_q.copy()
     p = np.random.multivariate_normal(np.zeros_like(q), cov=np.eye(len(q)))
