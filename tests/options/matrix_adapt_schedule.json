@@ -1,0 +1,5 @@
+{
+    "early_adapt_window": 10,
+    "late_adapt_window": 80,
+    "early_window": 0.3
+}

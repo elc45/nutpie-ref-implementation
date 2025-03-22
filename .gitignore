@@ -15,3 +15,4 @@ nutpie_ref.egg-info/dependency_links.txt
 nutpie_ref.egg-info/top_level.txt
 tests/data/norm_constr.json
 bjx.py
+nutpie-ref.code-workspace
