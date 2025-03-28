@@ -13,3 +13,8 @@ Optional arguments:
         `early_adapt_window`: frequency with which matrix is updated in early phase
         `late_adapt_window`: frequency with which matrix is updated in regular phase
         `early_window`: fraction of warmup time to be spent in the early adaptation regime
+- `--step_size_params`: Path to a JSON file with more granular options for step size adaptation (dual averaging), with entries for:
+        `target_accept_rate`
+        `gamma`: adaptation regularization scale (default: 0.05)
+        `k`: adaptation relaxation exponent (default: 0.75)
+        `t0`: adaptation iteration offset (default: 10)

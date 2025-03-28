@@ -50,7 +50,7 @@ def low_rank_matrix_adapt(draw_matrix, grad_matrix, gamma=1e-5, cutoff=100):
 
     eigvals, eigvecs = np.linalg.eigh(Sigma)
 
-    indices = np.where((eigvals < cutoff) & (eigvals > (1/cutoff)))[0]
+    indices = np.where((eigvals > cutoff) | (eigvals < (1/cutoff)))[0]
     U_selected = eigvecs[:, indices]
 
     U = Q @ U_selected

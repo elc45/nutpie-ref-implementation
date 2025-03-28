@@ -31,7 +31,7 @@ parser.add_argument('--matrix_adapt_type', type=str, required=False, default='di
 parser.add_argument('--step_size_params', type=str, required=False,
                    help='Path to JSON file containing step size adaptation parameters')
 parser.add_argument('--matrix_adapt_schedule', type=str, required=False, default=None,
-                   help='Path to JSON file containing matrix adaptation schedule')
+                   help='Path to JSON file containing matrix adaptation schedule params')
 
 args = parser.parse_args()
 
