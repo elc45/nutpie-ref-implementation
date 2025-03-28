@@ -7,7 +7,7 @@ from src import step_size
 
 def sample(U: Callable, grad_U: Callable, epsilon: np.float64, current_q: np.ndarray, n_samples: int, 
            constrainer: Callable, n_warmup: int = 1000, adapt_mass_matrix: bool = False, early_window: float = 0.3, early_adapt_window: int = 10, 
-           late_adapt_window: int = 80, matrix_adapt_type: str | None = None, adapt_step_size: bool = True, target_accept_rate: np.float64 = 0.8) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+           late_adapt_window: int = 80, matrix_adapt_type: str | None = None, eigval_cutoff: float = 100, adapt_step_size: bool = True, target_accept_rate: np.float64 = 0.8) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     
     adapt_window = early_adapt_window
     dim = len(current_q)
@@ -53,7 +53,7 @@ def sample(U: Callable, grad_U: Callable, epsilon: np.float64, current_q: np.nda
                 elif matrix_adapt_type == 'diag':
                     inv_mass_matrix = matrix_adaptation.diag_matrix_adapt(draws_buffer, grads_buffer)
                 elif matrix_adapt_type == 'low_rank':
-                    inv_mass_matrix = matrix_adaptation.low_rank_matrix_adapt(draws_buffer, grads_buffer)
+                    inv_mass_matrix = matrix_adaptation.low_rank_matrix_adapt(draws_buffer, grads_buffer, cutoff = eigval_cutoff)
 
                 if i > n_warmup * early_window:
                     adapt_window = late_adapt_window

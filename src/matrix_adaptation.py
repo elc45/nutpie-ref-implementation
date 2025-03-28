@@ -1,29 +1,21 @@
 import numpy as np
 
-def full_matrix_adapt(draw_matrix, grad_matrix, gamma=1e-5):
-    d, n_draws = draw_matrix.shape
+def full_matrix_adapt(draw_matrix, grad_matrix):
 
     draw_means = draw_matrix.mean(axis=1)
     grad_means = grad_matrix.mean(axis=1)
     
-    draw_stds = np.std(draw_matrix, axis=1)
-    grad_stds = np.std(grad_matrix, axis=1)
+    draws_rescaled = (draw_matrix - draw_means[:, None])
+    grads_rescaled = (grad_matrix - grad_means[:, None])
     
-    stds = np.sqrt(draw_stds / grad_stds)
-    
-    draw_scales = 1.0 / (stds * n_draws)
-    grad_scales = stds / n_draws
-    
-    draws_rescaled = (draw_matrix - draw_means[:, None]) * draw_scales[:, None]
-    grads_rescaled = (grad_matrix - grad_means[:, None]) * grad_scales[:, None]
-    
-    draw_cov = np.cov(draws_rescaled) + np.eye(d) * gamma
-    grad_cov = np.cov(grads_rescaled) + np.eye(d) * gamma
+    draw_cov = np.cov(draws_rescaled)
+    grad_cov = np.cov(grads_rescaled)
         
     Sigma = spdm(draw_cov, grad_cov)
-    return Sigma
+    inv_mass_matrix = np.linalg.inv(Sigma)
+    return inv_mass_matrix
 
-def low_rank_matrix_adapt(draw_matrix, grad_matrix, gamma=1e-5, cutoff=0.01):
+def low_rank_matrix_adapt(draw_matrix, grad_matrix, gamma=1e-5, cutoff=100):
 
     d, n_draws = draw_matrix.shape
 
@@ -58,12 +50,13 @@ def low_rank_matrix_adapt(draw_matrix, grad_matrix, gamma=1e-5, cutoff=0.01):
 
     eigvals, eigvecs = np.linalg.eigh(Sigma)
 
-    indices = np.where(eigvals >= cutoff)[0]
+    indices = np.where((eigvals < cutoff) & (eigvals > (1/cutoff)))[0]
     U_selected = eigvecs[:, indices]
 
-    mass_matrix = Q @ U_selected
-
-    return mass_matrix
+    U = Q @ U_selected
+    mass_matrix = U @ np.diag(eigvals[indices] - 1) @ U.T + np.eye(d)
+    inv_mass_matrix = np.linalg.inv(mass_matrix)
+    return inv_mass_matrix
 
 def diag_matrix_adapt(draw_matrix, grad_matrix):
     draw_variance = np.var(draw_matrix, axis=1)
@@ -71,13 +64,12 @@ def diag_matrix_adapt(draw_matrix, grad_matrix):
 
     scaling_factors = np.sqrt(draw_variance / grad_variance)
 
-    mass_matrix = np.diag(scaling_factors)
-    return mass_matrix
+    inv_mass_matrix = np.diag(scaling_factors)
+    return inv_mass_matrix
 
 def spdm(A, B):
 
     eigvals_B, eigvecs_B = np.linalg.eig(B)
-    # eigvals_A = np.maximum(eigvals_A, 1e-10)
 
     B_sqrt = eigvecs_B @ np.diag(np.sqrt(eigvals_B)) @ eigvecs_B.T
     B_inv_sqrt = eigvecs_B @ np.diag(1 / np.sqrt(eigvals_B)) @ eigvecs_B.T
@@ -85,7 +77,6 @@ def spdm(A, B):
     M = B_sqrt @ A @ B_sqrt
 
     eigvals_M, eigvecs_M = np.linalg.eig(M)
-    # eigvals_M = np.maximum(eigvals_M, 1e-10)
     M_sqrt = eigvecs_M @ np.diag(np.sqrt(eigvals_M)) @ eigvecs_M.T
 
     spdm_matrix = B_inv_sqrt @ M_sqrt @ B_inv_sqrt
