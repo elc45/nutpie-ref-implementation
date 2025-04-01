@@ -58,15 +58,6 @@ def low_rank_matrix_adapt(draw_matrix, grad_matrix, gamma=1e-5, cutoff=100):
     inv_mass_matrix = np.linalg.inv(mass_matrix)
     return inv_mass_matrix
 
-def diag_matrix_adapt(draw_matrix, grad_matrix):
-    draw_variance = np.var(draw_matrix, axis=1)
-    grad_variance = np.var(grad_matrix, axis=1)
-
-    scaling_factors = np.sqrt(draw_variance / grad_variance)
-
-    inv_mass_matrix = np.diag(scaling_factors)
-    return inv_mass_matrix
-
 def spdm(A, B):
 
     eigvals_B, eigvecs_B = np.linalg.eig(B)

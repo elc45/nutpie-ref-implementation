@@ -26,9 +26,15 @@ def sample(U: Callable, grad_U: Callable, epsilon: np.float64, current_q: np.nda
         draws_buffer = np.zeros((dim, adapt_window))
         grads_buffer = np.zeros((dim, adapt_window))
         buffer_idx = 0
+
+        if matrix_adapt_type == 'diag':             
+            run_mean = np.zeros(dim)
+            run_var = np.zeros(dim)
+            run_grad_mean = np.zeros(dim)
+            run_grad_var = np.zeros(dim)
     
     metrics = []
-
+    
     for i in tqdm(range(n_warmup), desc="Warmup"):
 
         current_q, current_grad, alpha, n_alpha = nuts.draw(U, grad_U, epsilon, current_q, inv_mass_matrix)
@@ -42,7 +48,20 @@ def sample(U: Callable, grad_U: Callable, epsilon: np.float64, current_q: np.nda
         warmup_samples[:, i] = constrainer(current_q)
 
         if adapt_mass_matrix:
-            
+            if matrix_adapt_type == 'diag':
+                delta = current_q - run_mean
+                run_mean += delta / (buffer_idx + 1)
+                delta2 = current_q - run_mean
+                run_var += (delta * delta2) / (buffer_idx + 1)
+
+                delta = current_grad - run_grad_mean
+                run_grad_mean += delta / (buffer_idx + 1)
+                delta2 = current_grad - run_grad_mean
+                run_grad_var += (delta * delta2) / (buffer_idx + 1)
+
+                if buffer_idx > 2:
+                    inv_mass_matrix = np.diag(np.sqrt(run_var / run_grad_var))
+                 
             draws_buffer[:, buffer_idx] = current_q
             grads_buffer[:, buffer_idx] = current_grad
             buffer_idx = (buffer_idx + 1) % adapt_window
@@ -50,8 +69,7 @@ def sample(U: Callable, grad_U: Callable, epsilon: np.float64, current_q: np.nda
             if i % adapt_window == 0 and i > 10:
                 if matrix_adapt_type == 'full':
                     inv_mass_matrix = matrix_adaptation.full_matrix_adapt(draws_buffer, grads_buffer)
-                elif matrix_adapt_type == 'diag':
-                    inv_mass_matrix = matrix_adaptation.diag_matrix_adapt(draws_buffer, grads_buffer)
+
                 elif matrix_adapt_type == 'low_rank':
                     inv_mass_matrix = matrix_adaptation.low_rank_matrix_adapt(draws_buffer, grads_buffer, cutoff = eigval_cutoff)
 
